@@ -7,8 +7,60 @@
 
 local json = require "dkjson"
 
+-- 将 print() 重定向到 stderr，避免 HeadlessWrapper 的初始化消息
+-- ("Loading..." 等) 污染供 JSON 通信使用的 stdout 管道。
+local _orig_print = print
+print = function(...)
+  local parts = {}
+  for i = 1, select("#", ...) do parts[i] = tostring(select(i, ...)) end
+  io.stderr:write(table.concat(parts, "\t") .. "\n")
+  io.stderr:flush()
+end
+
 -- 一次性加载 POB 引擎（约 1-3 秒）
 dofile("HeadlessWrapper.lua")
+
+-- 导出树节点数据到文件（仅首次运行时）
+local treeDataPath = "../web/tree-data.json"
+local f = io.open(treeDataPath, "r")
+if not f then
+  -- 用一个最小 XML 触发引擎初始化（使 build.spec.tree 可用）
+  local minXml = [[<?xml version="1.0" encoding="UTF-8"?>
+<PathOfBuilding>
+  <Build level="1" className="Scion" ascendClassName="None"/>
+  <Skills/><Tree activeSpec="1"><Spec treeVersion="3_21" classId="0" ascendClassId="0" nodes=""/></Tree>
+  <Items/><Config/>
+</PathOfBuilding>]]
+  local ok, err = pcall(loadBuildFromXML, minXml, "tree_init")
+  if ok and build and build.spec and build.spec.tree then
+    local nodes = {}
+    local tree = build.spec.tree
+    for id, node in pairs(tree.nodes) do
+      if node.type ~= "class" and node.x and node.y then
+        table.insert(nodes, {
+          id = node.id or id,
+          name = node.name or "",
+          type = node.type or "normal",
+          x = node.x,
+          y = node.y,
+          mods = node.mods or {},
+          ascendancyName = node.ascendancyName,
+        })
+      end
+    end
+    local out = io.open(treeDataPath, "w")
+    if out then
+      out:write(json.encode(nodes))
+      out:close()
+      io.stderr:write("[server_calc] tree-data.json written: " .. #nodes .. " nodes\n")
+    end
+  else
+    io.stderr:write("[server_calc] tree init failed: " .. tostring(err) .. "\n")
+  end
+else
+  f:close()
+  io.stderr:write("[server_calc] tree-data.json already exists, skipping\n")
+end
 
 -- stat key 白名单（只序列化数值字段，避免函数引用等无法 JSON 化的值）
 local EXPORT_STATS = {

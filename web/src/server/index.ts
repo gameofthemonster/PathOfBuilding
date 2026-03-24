@@ -3,18 +3,34 @@ import { SessionStore } from "./session-store"
 import { decodeBuildString } from "./decode"
 import { parseBuildXml } from "./xml-parser"
 import { applyPatch, type BuildPatch } from "./xml-patcher"
+import { loadTranslations } from "./i18n-loader"
 import { randomUUID } from "crypto"
 import { readdirSync } from "fs"
 import { join } from "path"
 import index from "../../index.html"
 
 const FIXTURES_DIR = join(import.meta.dir, "../../test/fixtures")
+const REPO_ROOT = join(import.meta.dir, "../../../..")
 
 const PORT = parseInt(process.env["PORT"] ?? "3000", 10)
 const POOL_SIZE = parseInt(process.env["POOL_SIZE"] ?? "4", 10)
 
 const pool = new WorkerPool(POOL_SIZE)
 const sessions = new SessionStore()
+
+// 树数据缓存
+let treeDataCache: unknown[] | null = null
+
+async function getTreeDataCached(): Promise<unknown[]> {
+  if (treeDataCache) return treeDataCache
+  const treeDataPath = join(REPO_ROOT, "web/tree-data.json")
+  const file = Bun.file(treeDataPath)
+  if (await file.exists()) {
+    treeDataCache = await file.json()
+    return treeDataCache!
+  }
+  return []
+}
 
 // 优雅退出
 process.on("SIGINT", () => {
@@ -41,6 +57,8 @@ pool.warmup().then(() => {
       "/api/fixtures/:name": { GET: (req) => handleGetFixture(req as RouteRequest) },
       "/api/calculate": { POST: handleCalculate },
       "/api/recalculate": { POST: handleRecalculate },
+      "/api/tree-data": { GET: async () => jsonResponse(await getTreeDataCached(), 200) },
+      "/api/i18n": { GET: handleI18n },
     },
     development: {
       hmr: true,
@@ -160,6 +178,11 @@ async function handleRecalculate(req: Request): Promise<Response> {
   }
 
   return jsonResponse({ result }, 200)
+}
+
+async function handleI18n(): Promise<Response> {
+  const map = await loadTranslations()
+  return jsonResponse(Object.fromEntries(map), 200)
 }
 
 function jsonResponse(data: unknown, status: number): Response {

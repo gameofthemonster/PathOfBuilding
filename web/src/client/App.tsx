@@ -125,6 +125,20 @@ export default function App() {
     }))
   }
 
+  function handleAllocChange(allocNodes: number[]) {
+    if (!currentBuildConfig) return
+
+    setCurrentBuildConfig({
+      ...currentBuildConfig,
+      tree: { ...currentBuildConfig.tree, allocNodes },
+    })
+
+    setPendingPatch((prev) => ({
+      ...prev,
+      tree: { allocNodes },
+    }))
+  }
+
   const isLoading = loading || recalcLoading
   const displayError = error ?? recalcError
 
@@ -175,6 +189,7 @@ export default function App() {
             onItemChange={handleItemChange}
             onSkillChange={handleSkillChange}
             onConfigChange={handleConfigChange}
+            onAllocChange={handleAllocChange}
           />
         </main>
       </div>
