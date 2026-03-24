@@ -3,6 +3,7 @@ import type { BuildConfig, CalcResult, GemInstance } from "../types"
 import { ItemsTab } from "./ItemsTab"
 import { SkillsTab } from "./SkillsTab"
 import { ConfigTab } from "./ConfigTab"
+import { PassiveTreeTab } from "./PassiveTreeTab"
 
 interface Props {
   buildConfig: BuildConfig | null
@@ -10,9 +11,10 @@ interface Props {
   onItemChange: (slotName: string, newItemText: string) => void
   onSkillChange: (groupIndex: number, gemIndex: number, updated: Partial<GemInstance>) => void
   onConfigChange: (key: string, value: unknown) => void
+  onAllocChange?: (allocNodes: number[]) => void
 }
 
-export function TabsArea({ buildConfig, result, onItemChange, onSkillChange, onConfigChange }: Props) {
+export function TabsArea({ buildConfig, result, onItemChange, onSkillChange, onConfigChange, onAllocChange }: Props) {
   return (
     <Tabs defaultValue="stats" className="flex-1 flex flex-col">
       <TabsList className="w-full justify-start border-b rounded-none h-9 px-4 shrink-0">
@@ -47,8 +49,12 @@ export function TabsArea({ buildConfig, result, onItemChange, onSkillChange, onC
           <div className="text-sm text-muted-foreground">技能（Phase 3）</div>
         )}
       </TabsContent>
-      <TabsContent value="tree" className="p-4">
-        <div className="text-sm text-muted-foreground">天赋树（Phase 4）</div>
+      <TabsContent value="tree" className="p-0 flex-1">
+        {buildConfig ? (
+          <PassiveTreeTab buildConfig={buildConfig} onAllocChange={onAllocChange ?? undefined} />
+        ) : (
+          <div className="p-4 text-sm text-muted-foreground">天赋树（Phase 4）</div>
+        )}
       </TabsContent>
       <TabsContent value="config" className="p-4 overflow-y-auto flex-1">
         {buildConfig ? (

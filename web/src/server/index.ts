@@ -4,8 +4,13 @@ import { decodeBuildString } from "./decode"
 import { parseBuildXml } from "./xml-parser"
 import { applyPatch, type BuildPatch } from "./xml-patcher"
 import { randomUUID } from "crypto"
+import { readdirSync } from "fs"
+import { join } from "path"
+import index from "../../index.html"
 
-const PORT = 3001
+const FIXTURES_DIR = join(import.meta.dir, "../../test/fixtures")
+
+const PORT = parseInt(process.env["PORT"] ?? "3000", 10)
 const POOL_SIZE = parseInt(process.env["POOL_SIZE"] ?? "4", 10)
 
 const pool = new WorkerPool(POOL_SIZE)
@@ -19,6 +24,10 @@ process.on("SIGINT", () => {
   process.exit(0)
 })
 
+interface RouteRequest extends Request {
+  params: Record<string, string>
+}
+
 // 预热进程池，然后启动 HTTP 服务
 console.log("[Server] Warming up LuaJIT worker pool...")
 pool.warmup().then(() => {
@@ -26,29 +35,16 @@ pool.warmup().then(() => {
 
   Bun.serve({
     port: PORT,
-    async fetch(req) {
-      const url = new URL(req.url)
-
-      // CORS headers（供 Vite 开发代理使用）
-      const corsHeaders = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-      }
-
-      if (req.method === "OPTIONS") {
-        return new Response(null, { status: 204, headers: corsHeaders })
-      }
-
-      if (req.method === "POST" && url.pathname === "/api/calculate") {
-        return handleCalculate(req, corsHeaders)
-      }
-
-      if (req.method === "POST" && url.pathname === "/api/recalculate") {
-        return handleRecalculate(req, corsHeaders)
-      }
-
-      return new Response("Not Found", { status: 404 })
+    routes: {
+      "/": index,
+      "/api/fixtures": { GET: handleListFixtures },
+      "/api/fixtures/:name": { GET: (req) => handleGetFixture(req as RouteRequest) },
+      "/api/calculate": { POST: handleCalculate },
+      "/api/recalculate": { POST: handleRecalculate },
+    },
+    development: {
+      hmr: true,
+      console: true,
     },
   })
 }).catch((err) => {
@@ -56,19 +52,44 @@ pool.warmup().then(() => {
   process.exit(1)
 })
 
-async function handleCalculate(
-  req: Request,
-  corsHeaders: Record<string, string>
-): Promise<Response> {
+function handleListFixtures(): Response {
+  try {
+    const files = readdirSync(FIXTURES_DIR)
+      .filter((f) => f.endsWith(".build"))
+      .map((f) => f.replace(/\.build$/, ""))
+    return jsonResponse({ fixtures: files }, 200)
+  } catch {
+    return jsonResponse({ fixtures: [] }, 200)
+  }
+}
+
+async function handleGetFixture(req: RouteRequest): Promise<Response> {
+  const name = req.params.name
+  if (name.includes("/") || name.includes("..")) {
+    return jsonResponse({ error: "Invalid fixture name" }, 400)
+  }
+  const filePath = join(FIXTURES_DIR, `${name}.build`)
+  const file = Bun.file(filePath)
+  if (!(await file.exists())) {
+    return jsonResponse({ error: "Fixture not found" }, 404)
+  }
+  const content = await file.text()
+  return new Response(content.trim(), {
+    status: 200,
+    headers: { "Content-Type": "text/plain" },
+  })
+}
+
+async function handleCalculate(req: Request): Promise<Response> {
   let body: { buildCode?: string }
   try {
     body = await req.json()
   } catch {
-    return jsonResponse({ error: "Invalid JSON body" }, 400, corsHeaders)
+    return jsonResponse({ error: "Invalid JSON body" }, 400)
   }
 
   if (!body.buildCode || typeof body.buildCode !== "string") {
-    return jsonResponse({ error: "Missing buildCode" }, 400, corsHeaders)
+    return jsonResponse({ error: "Missing buildCode" }, 400)
   }
 
   // 1. 解码 build string → XML
@@ -76,11 +97,7 @@ async function handleCalculate(
   try {
     xml = decodeBuildString(body.buildCode)
   } catch (err) {
-    return jsonResponse(
-      { error: `Failed to decode build string: ${String(err)}` },
-      400,
-      corsHeaders
-    )
+    return jsonResponse({ error: `Failed to decode build string: ${String(err)}` }, 400)
   }
 
   // 2. 解析 XML → BuildConfig
@@ -88,11 +105,7 @@ async function handleCalculate(
   try {
     buildConfig = parseBuildXml(xml)
   } catch (err) {
-    return jsonResponse(
-      { error: `Failed to parse XML: ${String(err)}` },
-      400,
-      corsHeaders
-    )
+    return jsonResponse({ error: `Failed to parse XML: ${String(err)}` }, 400)
   }
 
   // 3. 发送到 LuaJIT 计算
@@ -100,38 +113,31 @@ async function handleCalculate(
   try {
     result = await pool.calculate(xml)
   } catch (err) {
-    return jsonResponse(
-      { error: `Calculation failed: ${String(err)}` },
-      500,
-      corsHeaders
-    )
+    return jsonResponse({ error: `Calculation failed: ${String(err)}` }, 500)
   }
 
   // 4. 存储会话（供 recalculate 使用）
   const sessionId = randomUUID()
   sessions.set(sessionId, xml)
 
-  return jsonResponse({ sessionId, buildConfig, result }, 200, corsHeaders)
+  return jsonResponse({ sessionId, buildConfig, result }, 200)
 }
 
-async function handleRecalculate(
-  req: Request,
-  corsHeaders: Record<string, string>
-): Promise<Response> {
+async function handleRecalculate(req: Request): Promise<Response> {
   let body: { sessionId?: string; patch?: BuildPatch }
   try {
     body = await req.json()
   } catch {
-    return jsonResponse({ error: "Invalid JSON body" }, 400, corsHeaders)
+    return jsonResponse({ error: "Invalid JSON body" }, 400)
   }
 
   if (!body.sessionId) {
-    return jsonResponse({ error: "Missing sessionId" }, 400, corsHeaders)
+    return jsonResponse({ error: "Missing sessionId" }, 400)
   }
 
   const originalXml = sessions.get(body.sessionId)
   if (!originalXml) {
-    return jsonResponse({ error: "Session not found or expired" }, 404, corsHeaders)
+    return jsonResponse({ error: "Session not found or expired" }, 404)
   }
 
   // 应用 patch（如果有），否则用原始 XML
@@ -140,11 +146,7 @@ async function handleRecalculate(
     try {
       xml = applyPatch(originalXml, body.patch)
     } catch (err) {
-      return jsonResponse(
-        { error: `Failed to apply patch: ${String(err)}` },
-        400,
-        corsHeaders
-      )
+      return jsonResponse({ error: `Failed to apply patch: ${String(err)}` }, 400)
     }
   } else {
     xml = originalXml
@@ -154,26 +156,15 @@ async function handleRecalculate(
   try {
     result = await pool.calculate(xml)
   } catch (err) {
-    return jsonResponse(
-      { error: `Recalculation failed: ${String(err)}` },
-      500,
-      corsHeaders
-    )
+    return jsonResponse({ error: `Recalculation failed: ${String(err)}` }, 500)
   }
 
-  return jsonResponse({ result }, 200, corsHeaders)
+  return jsonResponse({ result }, 200)
 }
 
-function jsonResponse(
-  data: unknown,
-  status: number,
-  extraHeaders: Record<string, string> = {}
-): Response {
+function jsonResponse(data: unknown, status: number): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-      ...extraHeaders,
-    },
+    headers: { "Content-Type": "application/json" },
   })
 }
