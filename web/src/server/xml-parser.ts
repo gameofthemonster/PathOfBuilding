@@ -55,15 +55,31 @@ function parseAttributes(attrStr: string): Record<string, string> {
 
 /** 解析 Skills 段落 */
 function parseSkills(xml: string): SocketGroup[] {
-  const skillsMatch = xml.match(/<Skills>([\s\S]*?)<\/Skills>/)
+  // 新版 POB 格式：<Skills ...><SkillSet id="1"><Skill ...><Gem .../></Skill></SkillSet></Skills>
+  // 只取 activeSkillSet 对应的 SkillSet（默认 id=1）
+  const skillsMatch = xml.match(/<Skills([^>]*)>([\s\S]*?)<\/Skills>/)
   if (!skillsMatch) return []
 
-  const skillsXml = skillsMatch[1]
-  const groups: SocketGroup[] = []
+  const skillsAttrs = parseAttributes(skillsMatch[1])
+  const activeSetId = skillsAttrs["activeSkillSet"] ?? "1"
+  const skillsXml = skillsMatch[2]
 
-  const groupRe = /<SocketGroup\s+([^>]*)>([\s\S]*?)<\/SocketGroup>/g
+  // 找到 activeSkillSet 对应的 SkillSet 内容
+  const setRe = /<SkillSet\s+([^>]*)>([\s\S]*?)<\/SkillSet>/g
+  let sm: RegExpExecArray | null
+  let activeSetXml = skillsXml // 无 SkillSet 时直接解析 Skills 内容
+  while ((sm = setRe.exec(skillsXml)) !== null) {
+    const sa = parseAttributes(sm[1])
+    if (sa["id"] === activeSetId) {
+      activeSetXml = sm[2]
+      break
+    }
+  }
+
+  const groups: SocketGroup[] = []
+  const groupRe = /<Skill\s+([^>]*)>([\s\S]*?)<\/Skill>/g
   let gm: RegExpExecArray | null
-  while ((gm = groupRe.exec(skillsXml)) !== null) {
+  while ((gm = groupRe.exec(activeSetXml)) !== null) {
     const attrs = parseAttributes(gm[1])
     const gemsXml = gm[2]
 
