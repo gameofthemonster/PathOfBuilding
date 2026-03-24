@@ -140,6 +140,10 @@ async function handleCalculate(req: Request): Promise<Response> {
     return jsonResponse({ error: `Calculation failed: ${String(err)}` }, 500)
   }
 
+  if (result.error) {
+    return jsonResponse({ error: `Calculation failed: ${result.error}` }, 500)
+  }
+
   const sessionId = randomUUID()
   sessions.set(sessionId, xml)
 
@@ -179,6 +183,10 @@ async function handleRecalculate(req: Request): Promise<Response> {
     result = await pool.calculate(xml)
   } catch (err) {
     return jsonResponse({ error: `Recalculation failed: ${String(err)}` }, 500)
+  }
+
+  if (result.error) {
+    return jsonResponse({ error: `Recalculation failed: ${result.error}` }, 500)
   }
 
   return jsonResponse({ result }, 200)

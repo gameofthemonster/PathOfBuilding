@@ -128,7 +128,7 @@ export function StatsPanel({ result }: Props) {
           key={group.label}
           label={group.label}
           stats={group.stats}
-          data={result.stats}
+          data={result.stats ?? {}}
         />
       ))}
     </div>
