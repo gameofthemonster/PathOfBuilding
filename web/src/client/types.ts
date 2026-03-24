@@ -6,10 +6,17 @@ export interface DisplayStat {
   category: string
 }
 
+// A single line in a stat breakdown (e.g. "200 (base)", "x 1.50 (increased/reduced)", "= 300")
+export interface BreakdownLine {
+  label: string  // human-readable text with color codes stripped
+}
+
 export interface CalcResult {
   stats: Record<string, number>
   warnings: string[]
   displayStats: DisplayStat[]
+  // stat key -> array of breakdown text lines; only present when there is meaningful breakdown data
+  breakdown?: Record<string, BreakdownLine[]>
 }
 
 export interface SocketGroup {

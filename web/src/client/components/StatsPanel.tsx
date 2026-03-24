@@ -5,7 +5,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import type { CalcResult } from "../types";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import type { BreakdownLine, CalcResult } from "../types";
 
 // 标签来源：PoeCharm2 zh-rCN/BuildDisplayStats.csv
 // 无对应翻译的条目保留英文原文
@@ -69,14 +74,44 @@ interface StatRowProps {
   label: string;
   value: number;
   fmt: string;
+  breakdown?: BreakdownLine[];
 }
 
-function StatRow({ label, value, fmt }: StatRowProps) {
+function StatRow({ label, value, fmt, breakdown }: StatRowProps) {
+  const formatted = formatStat(value, fmt);
+
+  if (!breakdown || breakdown.length === 0) {
+    return (
+      <div className="flex justify-between py-0.5 text-sm">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-mono font-medium">{formatted}</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex justify-between py-0.5 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-mono font-medium">{formatStat(value, fmt)}</span>
-    </div>
+    <Popover>
+      <PopoverTrigger asChild>
+        <div className="flex justify-between py-0.5 text-sm cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1">
+          <span className="text-muted-foreground">{label}</span>
+          <span className="font-mono font-medium text-primary underline decoration-dotted underline-offset-2">
+            {formatted}
+          </span>
+        </div>
+      </PopoverTrigger>
+      <PopoverContent side="right" className="w-64 p-3">
+        <div className="text-xs font-semibold mb-2 text-foreground">
+          {label} 构成
+        </div>
+        <div className="flex flex-col gap-0.5">
+          {breakdown.map((entry, i) => (
+            <div key={i} className="text-xs text-muted-foreground font-mono">
+              {entry.label}
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -84,9 +119,10 @@ interface StatGroupProps {
   label: string;
   stats: Array<{ key: string; label: string; fmt: string }>;
   data: Record<string, number>;
+  breakdown?: Record<string, BreakdownLine[]>;
 }
 
-function StatGroup({ label, stats, data }: StatGroupProps) {
+function StatGroup({ label, stats, data, breakdown }: StatGroupProps) {
   const [open, setOpen] = useState(true);
 
   // 只显示有数据的行
@@ -107,7 +143,13 @@ function StatGroup({ label, stats, data }: StatGroupProps) {
       </CollapsibleTrigger>
       <CollapsibleContent>
         {visibleStats.map(({ key, label, fmt }) => (
-          <StatRow key={key} label={label} value={data[key]} fmt={fmt} />
+          <StatRow
+            key={key}
+            label={label}
+            value={data[key]}
+            fmt={fmt}
+            breakdown={breakdown?.[key]}
+          />
         ))}
       </CollapsibleContent>
     </Collapsible>
@@ -130,6 +172,7 @@ export function StatsPanel({ result }: Props) {
           label={group.label}
           stats={group.stats}
           data={result.stats ?? {}}
+          breakdown={result.breakdown}
         />
       ))}
     </div>

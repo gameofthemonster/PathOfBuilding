@@ -7,6 +7,7 @@ export interface LuaResult {
   stats: Record<string, number>
   warnings: string[]
   error?: string
+  breakdown?: Record<string, Array<{ label: string }>>
 }
 
 /**

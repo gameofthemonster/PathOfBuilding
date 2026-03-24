@@ -142,7 +142,49 @@ while true do
       end
     end
 
-    return json.encode({ stats = stats, warnings = warnings })
+    -- Collect text-based breakdown lines from CALCS mode.
+    -- breakdown[statKey] is a Lua array of strings like "200 ^8(base)", "x 1.50 ^8(increased/reduced)", "= 300"
+    -- We strip the ^N and ^xRRGGBB color escape codes before sending to the frontend.
+    local breakdown = {}
+    local ok_calcs, calcsEnv = pcall(function()
+      return build.calcsTab.calcs.buildOutput(build, "CALCS")
+    end)
+    if ok_calcs and calcsEnv and calcsEnv.player and calcsEnv.player.breakdown then
+      local bd = calcsEnv.player.breakdown
+      -- Keys for which we export simple text-line breakdowns (matching EXPORT_STATS keys used in UI)
+      local TEXT_BREAKDOWN_KEYS = {
+        "Life", "Mana", "EnergyShield", "Ward",
+        "Armour", "Evasion",
+        "Str", "Dex", "Int",
+        "CritChance", "CritMultiplier",
+        "FireResist", "ColdResist", "LightningResist", "ChaosResist",
+        "NetLifeRegen", "NetManaRegen", "NetEnergyShieldRegen",
+        "LifeLeechGainRate", "ManaLeechGainRate", "EnergyShieldLeechGainRate",
+        "PhysicalDamageReduction", "AttackDodgeChance", "SpellDodgeChance",
+        "EffectiveBlockChance", "EffectiveSpellBlockChance",
+      }
+      for _, key in ipairs(TEXT_BREAKDOWN_KEYS) do
+        local bd_entry = bd[key]
+        -- Only export if it's a plain text-line array (array of strings, no nested tables)
+        if type(bd_entry) == "table" and #bd_entry > 0 and type(bd_entry[1]) == "string" then
+          local lines = {}
+          for _, line in ipairs(bd_entry) do
+            -- Strip POB color escape codes: ^N (digit) and ^xRRGGBB (7-char hex)
+            local clean = line:gsub("%^%x%x%x%x%x%x%x", ""):gsub("%^%d", "")
+            -- Trim leading/trailing whitespace
+            clean = clean:match("^%s*(.-)%s*$")
+            if clean and #clean > 0 then
+              table.insert(lines, { label = clean })
+            end
+          end
+          if #lines > 0 then
+            breakdown[key] = lines
+          end
+        end
+      end
+    end
+
+    return json.encode({ stats = stats, warnings = warnings, breakdown = breakdown })
   end)
 
   if ok then
