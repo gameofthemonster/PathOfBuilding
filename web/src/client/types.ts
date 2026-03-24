@@ -42,6 +42,7 @@ export interface BuildConfig {
   level: number
   className: string
   ascendClassName: string
+  mainSocketGroup: number
   skills: SocketGroup[]
   tree: {
     treeVersion: string

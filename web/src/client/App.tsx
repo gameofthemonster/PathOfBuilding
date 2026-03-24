@@ -3,6 +3,7 @@ import { BuildInput } from "./components/BuildInput"
 import { StatsPanel } from "./components/StatsPanel"
 import { WarningsPanel } from "./components/WarningsPanel"
 import { TabsArea } from "./components/TabsArea"
+import { MainSkillSelector } from "./components/MainSkillSelector"
 import { useCalculate } from "./hooks/useCalculate"
 import { useRecalculate, type BuildPatch } from "./hooks/useRecalculate"
 import { Button } from "@/components/ui/button"
@@ -125,6 +126,15 @@ export default function App() {
     }))
   }
 
+  function handleMainSkillChange(index: number) {
+    if (!currentBuildConfig) return
+    setCurrentBuildConfig({ ...currentBuildConfig, mainSocketGroup: index })
+    // 立即触发重新计算（不等"重新计算"按钮）
+    if (sessionId) {
+      recalculate({ mainSocketGroup: index })
+    }
+  }
+
   function handleAllocChange(allocNodes: number[]) {
     if (!currentBuildConfig) return
 
@@ -169,6 +179,13 @@ export default function App() {
       <div className="flex flex-1 overflow-hidden">
         {/* 左侧：Stats + Warnings（固定宽度，独立滚动） */}
         <aside className="w-64 border-r overflow-y-auto shrink-0">
+          {currentBuildConfig && currentBuildConfig.skills.length > 0 && (
+            <MainSkillSelector
+              skills={currentBuildConfig.skills}
+              mainSocketGroup={currentBuildConfig.mainSocketGroup}
+              onChange={handleMainSkillChange}
+            />
+          )}
           {currentResult ? (
             <>
               <StatsPanel result={currentResult} />

@@ -28,6 +28,7 @@ export interface BuildPatch {
     gems?: Array<{ index: number; level?: number; quality?: number; enabled?: boolean }>
   }>
   config?: Record<string, unknown>
+  mainSocketGroup?: number
 }
 
 export function applyPatch(originalXml: string, patch: BuildPatch): string {
@@ -87,6 +88,10 @@ export function applyPatch(originalXml: string, patch: BuildPatch): string {
         if (gemPatch.enabled !== undefined) gem["@_enabled"] = String(gemPatch.enabled)
       }
     }
+  }
+
+  if (patch.mainSocketGroup !== undefined && root.Build) {
+    root.Build["@_mainSocketGroup"] = String(patch.mainSocketGroup)
   }
 
   if (patch.config && root.Config) {

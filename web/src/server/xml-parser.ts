@@ -30,6 +30,7 @@ export function parseBuildXml(xml: string): BuildConfig {
     level: parseInt(buildAttrs["level"] ?? "1", 10),
     className: buildAttrs["className"] ?? "Scion",
     ascendClassName: buildAttrs["ascendClassName"] ?? "None",
+    mainSocketGroup: parseInt(buildAttrs["mainSocketGroup"] ?? "1", 10),
     skills,
     tree: {
       treeVersion: specAttrs["treeVersion"] ?? buildAttrs["treeVersion"] ?? "3_28",
