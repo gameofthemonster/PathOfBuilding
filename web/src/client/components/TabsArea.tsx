@@ -1,0 +1,44 @@
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import type { BuildConfig, CalcResult } from "../types"
+
+interface Props {
+  buildConfig: BuildConfig | null
+  result: CalcResult | null
+}
+
+export function TabsArea({ buildConfig, result }: Props) {
+  return (
+    <Tabs defaultValue="stats" className="flex-1 flex flex-col">
+      <TabsList className="w-full justify-start border-b rounded-none h-9 px-4 shrink-0">
+        <TabsTrigger value="stats">统计</TabsTrigger>
+        <TabsTrigger value="items" disabled={!buildConfig}>装备</TabsTrigger>
+        <TabsTrigger value="skills" disabled={!buildConfig}>技能</TabsTrigger>
+        <TabsTrigger value="tree" disabled={!buildConfig}>天赋树</TabsTrigger>
+        <TabsTrigger value="config" disabled={!buildConfig}>配置</TabsTrigger>
+      </TabsList>
+      <TabsContent value="stats" className="flex-1 p-4 overflow-y-auto">
+        {result ? (
+          <div className="text-sm text-muted-foreground">
+            已计算 {Object.keys(result.stats).length} 个数值
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">
+            请输入 Build String 并点击计算
+          </div>
+        )}
+      </TabsContent>
+      <TabsContent value="items" className="p-4">
+        <div className="text-sm text-muted-foreground">装备（Phase 2）</div>
+      </TabsContent>
+      <TabsContent value="skills" className="p-4">
+        <div className="text-sm text-muted-foreground">技能（Phase 3）</div>
+      </TabsContent>
+      <TabsContent value="tree" className="p-4">
+        <div className="text-sm text-muted-foreground">天赋树（Phase 4）</div>
+      </TabsContent>
+      <TabsContent value="config" className="p-4">
+        <div className="text-sm text-muted-foreground">配置（Phase 3）</div>
+      </TabsContent>
+    </Tabs>
+  )
+}
