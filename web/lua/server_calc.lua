@@ -69,7 +69,6 @@ if fileEmpty then
     io.stderr:write("[server_calc] tree init failed: " .. tostring(err) .. "\n")
   end
 else
-  f:close()
   io.stderr:write("[server_calc] tree-data.json already exists, skipping\n")
 end
 
