@@ -1,12 +1,14 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { BuildConfig, CalcResult } from "../types"
+import { ItemsTab } from "./ItemsTab"
 
 interface Props {
   buildConfig: BuildConfig | null
   result: CalcResult | null
+  onItemChange: (slotName: string, newItemText: string) => void
 }
 
-export function TabsArea({ buildConfig, result }: Props) {
+export function TabsArea({ buildConfig, result, onItemChange }: Props) {
   return (
     <Tabs defaultValue="stats" className="flex-1 flex flex-col">
       <TabsList className="w-full justify-start border-b rounded-none h-9 px-4 shrink-0">
@@ -27,8 +29,12 @@ export function TabsArea({ buildConfig, result }: Props) {
           </div>
         )}
       </TabsContent>
-      <TabsContent value="items" className="p-4">
-        <div className="text-sm text-muted-foreground">装备（Phase 2）</div>
+      <TabsContent value="items" className="p-4 overflow-y-auto flex-1">
+        {buildConfig ? (
+          <ItemsTab buildConfig={buildConfig} onItemChange={onItemChange} />
+        ) : (
+          <div className="text-sm text-muted-foreground">装备（Phase 2）</div>
+        )}
       </TabsContent>
       <TabsContent value="skills" className="p-4">
         <div className="text-sm text-muted-foreground">技能（Phase 3）</div>
