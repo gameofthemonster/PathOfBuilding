@@ -39,13 +39,22 @@ if fileEmpty then
     local tree = build.spec.tree
     for id, node in pairs(tree.nodes) do
       if node.type ~= "class" and node.x and node.y then
+        -- Only keep string mods; parsed mod objects may contain non-serializable functions
+        local rawMods = {}
+        if type(node.mods) == "table" then
+          for _, m in ipairs(node.mods) do
+            if type(m) == "string" then
+              table.insert(rawMods, m)
+            end
+          end
+        end
         table.insert(nodes, {
           id = node.id or id,
           name = node.name or "",
           type = node.type or "normal",
           x = node.x,
           y = node.y,
-          mods = node.mods or {},
+          mods = rawMods,
           ascendancyName = node.ascendancyName,
         })
       end
