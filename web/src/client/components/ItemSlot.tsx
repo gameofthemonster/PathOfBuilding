@@ -12,22 +12,44 @@ import {
 } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 
-// 跳过装备头部元数据（Rarity/Name/Base/Sockets/Level/ItemLevel 等），只保留词缀行
-function extractMods(rawText: string): string[] {
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+}
+
+interface ItemMods {
+  implicits: string[]
+  explicits: string[]
+}
+
+// POB rawText 格式：头部行（Rarity/Name/Base/元数据）→ "Implicits: N" → 词缀行
+// 词缀行中前 N 条是 implicit，其余是 explicit
+function parseItemMods(rawText: string): ItemMods {
   const lines = rawText.split("\n").map((l) => l.trim())
-  const META_PREFIXES = ["Rarity:", "Sockets:", "LevelReq:", "ItemLvl:", "Quality:", "Implicits:", "Variant:"]
-  let afterHeader = false
-  let headerLines = 0
+  let implicitCount = 0
+  let pastHeader = false
   const mods: string[] = []
+
   for (const line of lines) {
-    if (!line) continue
-    if (line === "---") { afterHeader = headerLines >= 2; continue }
-    if (!afterHeader) { headerLines++; continue }
-    if (META_PREFIXES.some((p) => line.startsWith(p))) continue
-    mods.push(line)
-    if (mods.length >= 6) break
+    if (!line || line.startsWith("<")) continue
+    const m = line.match(/^Implicits:\s*(\d+)$/)
+    if (m) {
+      implicitCount = parseInt(m[1])
+      pastHeader = true
+      continue
+    }
+    if (!pastHeader) continue
+    mods.push(decodeEntities(line))
   }
-  return mods
+
+  return {
+    implicits: mods.slice(0, implicitCount),
+    explicits: mods.slice(implicitCount),
+  }
 }
 
 const RARITY_COLORS: Record<string, string> = {
@@ -35,6 +57,14 @@ const RARITY_COLORS: Record<string, string> = {
   RARE: "text-yellow-400",
   MAGIC: "text-blue-400",
   NORMAL: "text-gray-200",
+}
+
+// 词缀行颜色：按稀有度区分
+const RARITY_MOD_COLORS: Record<string, string> = {
+  UNIQUE: "text-orange-300/90",
+  RARE: "text-sky-300/90",
+  MAGIC: "text-blue-300/90",
+  NORMAL: "text-gray-300/80",
 }
 
 interface Props {
@@ -55,6 +85,14 @@ export function ItemSlot({ slotName, item, onReplace }: Props) {
     }
   }
 
+  const mods = item ? parseItemMods(item.rawText) : null
+  const shownImplicits = mods?.implicits.slice(0, 3) ?? []
+  const shownExplicits = mods?.explicits.slice(0, 5) ?? []
+  const totalMods = (mods?.implicits.length ?? 0) + (mods?.explicits.length ?? 0)
+  const shownCount = shownImplicits.length + shownExplicits.length
+  const truncated = totalMods - shownCount
+  const modColor = item ? (RARITY_MOD_COLORS[item.rarity] ?? "text-muted-foreground") : ""
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
@@ -69,20 +107,32 @@ export function ItemSlot({ slotName, item, onReplace }: Props) {
               )}
             </div>
             {item ? (
-              <div className={`text-sm font-medium ${RARITY_COLORS[item.rarity] ?? ""}`}>
-                {item.name || item.base}
-              </div>
+              <>
+                <div className={`text-sm font-medium leading-tight ${RARITY_COLORS[item.rarity] ?? ""}`}>
+                  {item.name || item.base}
+                </div>
+                {item.name && item.base && (
+                  <div className="text-xs text-muted-foreground leading-tight">{item.base}</div>
+                )}
+              </>
             ) : (
               <div className="text-sm text-muted-foreground italic">空</div>
             )}
           </CardHeader>
-          {item && (
-            <CardContent className="py-1 px-3">
-              <div className="text-xs text-muted-foreground leading-4 max-h-20 overflow-hidden">
-                {extractMods(item.rawText).map((mod, i) => (
-                  <div key={i}>{mod}</div>
-                ))}
-              </div>
+          {item && mods && shownCount > 0 && (
+            <CardContent className="py-1.5 px-3 border-t border-border/40">
+              {shownImplicits.map((mod, i) => (
+                <div key={`imp-${i}`} className="text-xs text-yellow-300/80 leading-[1.35]">{mod}</div>
+              ))}
+              {shownImplicits.length > 0 && shownExplicits.length > 0 && (
+                <div className="my-1 border-t border-border/30" />
+              )}
+              {shownExplicits.map((mod, i) => (
+                <div key={`exp-${i}`} className={`text-xs ${modColor} leading-[1.35]`}>{mod}</div>
+              ))}
+              {truncated > 0 && (
+                <div className="text-xs text-muted-foreground/50 mt-0.5">还有 {truncated} 条...</div>
+              )}
             </CardContent>
           )}
         </Card>
