@@ -1,14 +1,18 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import type { BuildConfig, CalcResult } from "../types"
+import type { BuildConfig, CalcResult, GemInstance } from "../types"
 import { ItemsTab } from "./ItemsTab"
+import { SkillsTab } from "./SkillsTab"
+import { ConfigTab } from "./ConfigTab"
 
 interface Props {
   buildConfig: BuildConfig | null
   result: CalcResult | null
   onItemChange: (slotName: string, newItemText: string) => void
+  onSkillChange: (groupIndex: number, gemIndex: number, updated: Partial<GemInstance>) => void
+  onConfigChange: (key: string, value: unknown) => void
 }
 
-export function TabsArea({ buildConfig, result, onItemChange }: Props) {
+export function TabsArea({ buildConfig, result, onItemChange, onSkillChange, onConfigChange }: Props) {
   return (
     <Tabs defaultValue="stats" className="flex-1 flex flex-col">
       <TabsList className="w-full justify-start border-b rounded-none h-9 px-4 shrink-0">
@@ -36,14 +40,22 @@ export function TabsArea({ buildConfig, result, onItemChange }: Props) {
           <div className="text-sm text-muted-foreground">装备（Phase 2）</div>
         )}
       </TabsContent>
-      <TabsContent value="skills" className="p-4">
-        <div className="text-sm text-muted-foreground">技能（Phase 3）</div>
+      <TabsContent value="skills" className="p-4 overflow-y-auto flex-1">
+        {buildConfig ? (
+          <SkillsTab buildConfig={buildConfig} onSkillChange={onSkillChange} />
+        ) : (
+          <div className="text-sm text-muted-foreground">技能（Phase 3）</div>
+        )}
       </TabsContent>
       <TabsContent value="tree" className="p-4">
         <div className="text-sm text-muted-foreground">天赋树（Phase 4）</div>
       </TabsContent>
-      <TabsContent value="config" className="p-4">
-        <div className="text-sm text-muted-foreground">配置（Phase 3）</div>
+      <TabsContent value="config" className="p-4 overflow-y-auto flex-1">
+        {buildConfig ? (
+          <ConfigTab buildConfig={buildConfig} onConfigChange={onConfigChange} />
+        ) : (
+          <div className="text-sm text-muted-foreground">配置（Phase 3）</div>
+        )}
       </TabsContent>
     </Tabs>
   )

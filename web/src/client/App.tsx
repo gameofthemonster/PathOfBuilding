@@ -6,7 +6,7 @@ import { TabsArea } from "./components/TabsArea"
 import { useCalculate } from "./hooks/useCalculate"
 import { useRecalculate, type BuildPatch } from "./hooks/useRecalculate"
 import { Button } from "@/components/ui/button"
-import type { BuildConfig, CalcResult } from "./types"
+import type { BuildConfig, CalcResult, GemInstance } from "./types"
 
 export default function App() {
   const { loading, error, data, calculate } = useCalculate()
@@ -73,6 +73,58 @@ export default function App() {
     })
   }
 
+  function handleSkillChange(groupIndex: number, gemIndex: number, updated: Partial<GemInstance>) {
+    if (!currentBuildConfig) return
+
+    const newSkills = currentBuildConfig.skills.map((group, gi) => {
+      if (gi !== groupIndex) return group
+      return {
+        ...group,
+        gems: group.gems.map((gem, ji) => {
+          if (ji !== gemIndex) return gem
+          return { ...gem, ...updated }
+        }),
+      }
+    })
+
+    setCurrentBuildConfig({ ...currentBuildConfig, skills: newSkills })
+
+    // Build patch in the format expected by BuildPatch.skills
+    const gemPatch: { index: number; level?: number; quality?: number; enabled?: boolean } = {
+      index: gemIndex,
+    }
+    if (updated.level !== undefined) gemPatch.level = updated.level
+    if (updated.quality !== undefined) gemPatch.quality = updated.quality
+    if (updated.enabled !== undefined) gemPatch.enabled = updated.enabled
+
+    setPendingPatch((prev) => {
+      const existingSkills = prev?.skills ?? []
+      const existingGroupPatch = existingSkills.find((s) => s.index === groupIndex)
+      const otherSkillPatches = existingSkills.filter((s) => s.index !== groupIndex)
+      const existingGems = existingGroupPatch?.gems ?? []
+      const filteredGems = existingGems.filter((g) => g.index !== gemIndex)
+      return {
+        ...prev,
+        skills: [
+          ...otherSkillPatches,
+          { index: groupIndex, gems: [...filteredGems, gemPatch] },
+        ],
+      }
+    })
+  }
+
+  function handleConfigChange(key: string, value: unknown) {
+    if (!currentBuildConfig) return
+
+    const newConfig = { ...currentBuildConfig.config, [key]: value }
+    setCurrentBuildConfig({ ...currentBuildConfig, config: newConfig })
+
+    setPendingPatch((prev) => ({
+      ...prev,
+      config: newConfig,
+    }))
+  }
+
   const isLoading = loading || recalcLoading
   const displayError = error ?? recalcError
 
@@ -121,6 +173,8 @@ export default function App() {
             buildConfig={currentBuildConfig}
             result={currentResult}
             onItemChange={handleItemChange}
+            onSkillChange={handleSkillChange}
+            onConfigChange={handleConfigChange}
           />
         </main>
       </div>
