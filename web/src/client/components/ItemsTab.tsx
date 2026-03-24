@@ -41,8 +41,8 @@ export function ItemsTab({ buildConfig, onItemChange }: Props) {
   }
 
   return (
-    <div className="p-4">
-      <div className="grid grid-cols-2 gap-2">
+    <div className="p-2">
+      <div className="grid grid-cols-2 gap-1.5">
         {SLOT_ORDER.map((slotName) => (
           <ItemSlot
             key={slotName}
@@ -52,7 +52,7 @@ export function ItemsTab({ buildConfig, onItemChange }: Props) {
           />
         ))}
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">
+      <p className="mt-2 text-[10px] text-muted-foreground">
         替换装备后点击页面顶部"重新计算"按钮生效
       </p>
     </div>

@@ -1,6 +1,5 @@
 import { useState } from "react"
 import type { Item } from "../types"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -10,7 +9,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { Badge } from "@/components/ui/badge"
 
 function decodeEntities(s: string): string {
   return s
@@ -26,8 +24,6 @@ interface ItemMods {
   explicits: string[]
 }
 
-// POB rawText 格式：头部行（Rarity/Name/Base/元数据）→ "Implicits: N" → 词缀行
-// 词缀行中前 N 条是 implicit，其余是 explicit
 function parseItemMods(rawText: string): ItemMods {
   const lines = rawText.split("\n").map((l) => l.trim())
   let implicitCount = 0
@@ -59,7 +55,6 @@ const RARITY_COLORS: Record<string, string> = {
   NORMAL: "text-gray-200",
 }
 
-// 词缀行颜色：按稀有度区分
 const RARITY_MOD_COLORS: Record<string, string> = {
   UNIQUE: "text-orange-300/90",
   RARE: "text-sky-300/90",
@@ -86,57 +81,46 @@ export function ItemSlot({ slotName, item, onReplace }: Props) {
   }
 
   const mods = item ? parseItemMods(item.rawText) : null
-  const shownImplicits = mods?.implicits.slice(0, 3) ?? []
-  const shownExplicits = mods?.explicits.slice(0, 5) ?? []
-  const totalMods = (mods?.implicits.length ?? 0) + (mods?.explicits.length ?? 0)
-  const shownCount = shownImplicits.length + shownExplicits.length
-  const truncated = totalMods - shownCount
   const modColor = item ? (RARITY_MOD_COLORS[item.rarity] ?? "text-muted-foreground") : ""
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Card className="cursor-pointer hover:border-primary transition-colors">
-          <CardHeader className="py-2 px-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">{slotName}</span>
-              {item && (
-                <Badge variant="outline" className="text-xs">
-                  {item.rarity}
-                </Badge>
-              )}
-            </div>
+        <div className="cursor-pointer rounded border border-border hover:border-primary transition-colors bg-card">
+          {/* 头部：插槽名 + 物品名 */}
+          <div className="px-2 pt-1 pb-0.5">
+            <div className="text-[10px] text-muted-foreground leading-none mb-0.5">{slotName}</div>
             {item ? (
               <>
-                <div className={`text-sm font-medium leading-tight ${RARITY_COLORS[item.rarity] ?? ""}`}>
+                <div className={`text-xs font-medium leading-tight ${RARITY_COLORS[item.rarity] ?? ""}`}>
                   {item.name || item.base}
                 </div>
                 {item.name && item.base && (
-                  <div className="text-xs text-muted-foreground leading-tight">{item.base}</div>
+                  <div className="text-[10px] text-muted-foreground leading-tight">{item.base}</div>
                 )}
               </>
             ) : (
-              <div className="text-sm text-muted-foreground italic">空</div>
+              <div className="text-[10px] text-muted-foreground/50 italic leading-tight">空</div>
             )}
-          </CardHeader>
-          {item && mods && shownCount > 0 && (
-            <CardContent className="py-1.5 px-3 border-t border-border/40">
-              {shownImplicits.map((mod, i) => (
-                <div key={`imp-${i}`} className="text-xs text-yellow-300/80 leading-[1.35]">{mod}</div>
+          </div>
+
+          {/* 词缀 */}
+          {item && mods && (mods.implicits.length > 0 || mods.explicits.length > 0) && (
+            <div className="px-2 pb-1 pt-0.5 border-t border-border/30">
+              {mods.implicits.map((mod, i) => (
+                <div key={`imp-${i}`} className="text-[10px] text-yellow-300/80 leading-[1.3]">{mod}</div>
               ))}
-              {shownImplicits.length > 0 && shownExplicits.length > 0 && (
-                <div className="my-1 border-t border-border/30" />
+              {mods.implicits.length > 0 && mods.explicits.length > 0 && (
+                <div className="my-0.5 border-t border-border/20" />
               )}
-              {shownExplicits.map((mod, i) => (
-                <div key={`exp-${i}`} className={`text-xs ${modColor} leading-[1.35]`}>{mod}</div>
+              {mods.explicits.map((mod, i) => (
+                <div key={`exp-${i}`} className={`text-[10px] ${modColor} leading-[1.3]`}>{mod}</div>
               ))}
-              {truncated > 0 && (
-                <div className="text-xs text-muted-foreground/50 mt-0.5">还有 {truncated} 条...</div>
-              )}
-            </CardContent>
+            </div>
           )}
-        </Card>
+        </div>
       </SheetTrigger>
+
       <SheetContent side="right" className="w-96">
         <SheetHeader>
           <SheetTitle>替换 {slotName}</SheetTitle>
