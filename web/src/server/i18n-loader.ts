@@ -25,8 +25,11 @@ export async function loadTranslations(): Promise<Map<string, string>> {
     for (const line of lines) {
       const commaIdx = line.indexOf(",")
       if (commaIdx === -1) continue
-      const en = line.slice(0, commaIdx).trim()
-      const zh = line.slice(commaIdx + 1).trim()
+      // 去除两端的双引号（PoeCharm2 CSV 部分 key 带引号）
+      let en = line.slice(0, commaIdx).trim()
+      let zh = line.slice(commaIdx + 1).trim()
+      if (en.startsWith('"') && en.endsWith('"')) en = en.slice(1, -1)
+      if (zh.startsWith('"') && zh.endsWith('"')) zh = zh.slice(1, -1)
       if (en && zh) translationMap.set(en, zh)
     }
   }

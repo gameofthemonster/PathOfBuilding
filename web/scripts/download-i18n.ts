@@ -4,11 +4,14 @@ import { mkdir } from "fs/promises"
 const BASE_URL =
   "https://raw.githubusercontent.com/Chuanhsing/PoeCharm2/main/Data/Translate/zh-rCN"
 
+// 选取对 POB Web 最有用的翻译文件
 const CSV_FILES = [
-  "StatDescriptions.csv",
-  "passive_skill_stat_descriptions.csv",
-  "skill_stat_descriptions.csv",
-  "gem_stat_descriptions.csv",
+  "BuildDisplayStats.csv",   // 数值面板标签
+  "ConfigOptions.csv",       // 配置选项
+  "GUI.csv",                 // 通用 UI 文本
+  "CalcsTab.csv",            // 计算面板
+  "Items_Gems.csv",          // 宝石名称
+  "SkillsTab.csv",           // 技能 Tab
 ]
 
 await mkdir("i18n/zh-CN", { recursive: true })
