@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { CaretDown, CaretRight } from "@phosphor-icons/react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -98,9 +98,9 @@ function StatGroup({ label, stats, data }: StatGroupProps) {
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="flex items-center gap-1 w-full py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground">
         {open ? (
-          <ChevronDown className="h-3 w-3" />
+          <CaretDown className="h-3 w-3" />
         ) : (
-          <ChevronRight className="h-3 w-3" />
+          <CaretRight className="h-3 w-3" />
         )}
         {label}
       </CollapsibleTrigger>

@@ -32,14 +32,17 @@ export async function sendToLua(
   // 读取一行 JSON 响应
   const reader = proc.stdout.getReader()
   let response = ""
-  while (true) {
-    const { value, done } = await reader.read()
-    if (done) throw new Error("LuaJIT process stdout closed unexpectedly")
-    const chunk = new TextDecoder().decode(value)
-    response += chunk
-    if (response.includes("\n")) break
+  try {
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) throw new Error("LuaJIT process stdout closed unexpectedly")
+      const chunk = new TextDecoder().decode(value)
+      response += chunk
+      if (response.includes("\n")) break
+    }
+  } finally {
+    reader.releaseLock()
   }
-  reader.releaseLock()
 
   const line = response.split("\n")[0].trim()
   return JSON.parse(line) as LuaResult

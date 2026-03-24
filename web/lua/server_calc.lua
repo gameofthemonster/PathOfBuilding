@@ -116,14 +116,14 @@ while true do
   local xml = io.read(len)
   if not xml then break end
 
-  local ok, err = pcall(function()
-    loadBuildFromXML(xml, "server_request")
-  end)
+  local ok, result = pcall(function()
+    local loadOk, loadErr = pcall(function()
+      loadBuildFromXML(xml, "server_request")
+    end)
+    if not loadOk then
+      return json.encode({ error = tostring(loadErr) })
+    end
 
-  if not ok then
-    io.write(json.encode({ error = tostring(err) }) .. "\n")
-    io.flush()
-  else
     local output = build.calcsTab.mainOutput
     local stats = {}
     for _, key in ipairs(EXPORT_STATS) do
@@ -134,11 +134,19 @@ while true do
     end
 
     local warnings = {}
-    for _, msg in ipairs(build.controls.warnings.lines) do
-      table.insert(warnings, msg)
+    if build.controls and build.controls.warnings and build.controls.warnings.lines then
+      for _, msg in ipairs(build.controls.warnings.lines) do
+        table.insert(warnings, msg)
+      end
     end
 
-    io.write(json.encode({ stats = stats, warnings = warnings }) .. "\n")
-    io.flush()
+    return json.encode({ stats = stats, warnings = warnings })
+  end)
+
+  if ok then
+    io.write(result .. "\n")
+  else
+    io.write(json.encode({ error = tostring(result) }) .. "\n")
   end
+  io.flush()
 end

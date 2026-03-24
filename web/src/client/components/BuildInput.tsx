@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Loader2 } from "lucide-react"
+import { SpinnerGap } from "@phosphor-icons/react"
 
 interface Props {
   onCalculate: (buildCode: string) => Promise<void>
@@ -71,7 +71,7 @@ export function BuildInput({ onCalculate, loading }: Props) {
         >
           {loading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <SpinnerGap className="mr-2 h-4 w-4 animate-spin" />
               计算中
             </>
           ) : (

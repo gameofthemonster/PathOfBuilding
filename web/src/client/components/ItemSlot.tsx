@@ -12,6 +12,24 @@ import {
 } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 
+// 跳过装备头部元数据（Rarity/Name/Base/Sockets/Level/ItemLevel 等），只保留词缀行
+function extractMods(rawText: string): string[] {
+  const lines = rawText.split("\n").map((l) => l.trim())
+  const META_PREFIXES = ["Rarity:", "Sockets:", "LevelReq:", "ItemLvl:", "Quality:", "Implicits:", "Variant:"]
+  let afterHeader = false
+  let headerLines = 0
+  const mods: string[] = []
+  for (const line of lines) {
+    if (!line) continue
+    if (line === "---") { afterHeader = headerLines >= 2; continue }
+    if (!afterHeader) { headerLines++; continue }
+    if (META_PREFIXES.some((p) => line.startsWith(p))) continue
+    mods.push(line)
+    if (mods.length >= 6) break
+  }
+  return mods
+}
+
 const RARITY_COLORS: Record<string, string> = {
   UNIQUE: "text-orange-400",
   RARE: "text-yellow-400",
@@ -60,14 +78,11 @@ export function ItemSlot({ slotName, item, onReplace }: Props) {
           </CardHeader>
           {item && (
             <CardContent className="py-1 px-3">
-              <pre className="text-xs text-muted-foreground whitespace-pre-wrap leading-4 max-h-20 overflow-hidden">
-                {item.rawText
-                  .split("\n")
-                  .slice(3)
-                  .filter((l) => l.trim() && !l.startsWith("---"))
-                  .slice(0, 6)
-                  .join("\n")}
-              </pre>
+              <div className="text-xs text-muted-foreground leading-4 max-h-20 overflow-hidden">
+                {extractMods(item.rawText).map((mod, i) => (
+                  <div key={i}>{mod}</div>
+                ))}
+              </div>
             </CardContent>
           )}
         </Card>

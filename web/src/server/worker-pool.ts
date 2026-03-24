@@ -54,7 +54,22 @@ export class WorkerPool {
       return result
     } catch (err) {
       // 进程崩溃，重建
-      console.error("[WorkerPool] Worker crashed, restarting...")
+      console.error("[WorkerPool] Worker crashed:", err)
+      // 读取 stderr 以获取 Lua 错误信息
+      try {
+        const stderrReader = (worker.proc.stderr as ReadableStream<Uint8Array>).getReader()
+        const chunks: Uint8Array[] = []
+        while (true) {
+          const { value, done } = await stderrReader.read()
+          if (done || !value) break
+          chunks.push(value)
+        }
+        stderrReader.releaseLock()
+        if (chunks.length > 0) {
+          const stderrText = new TextDecoder().decode(Buffer.concat(chunks))
+          console.error("[WorkerPool] Lua stderr:", stderrText)
+        }
+      } catch {}
       try { worker.proc.kill() } catch {}
       worker.proc = spawnLuaProcess()
       await waitForReady(worker.proc)

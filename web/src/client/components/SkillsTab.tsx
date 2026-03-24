@@ -55,6 +55,9 @@ interface Props {
 export function SkillsTab({ buildConfig, onSkillChange }: Props) {
   return (
     <div className="p-4 flex flex-col gap-3">
+      {buildConfig.skills.length === 0 && (
+        <div className="text-sm text-muted-foreground">没有找到技能配置</div>
+      )}
       {buildConfig.skills.map((group, gi) => (
         <Card key={gi}>
           <CardHeader className="py-2 px-3">

@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Select } from "radix-ui"
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
+import { Check as CheckIcon, CaretDown as ChevronDownIcon, CaretUp as ChevronUpIcon } from "@phosphor-icons/react"
 
 import { cn } from "@/lib/utils"
 
