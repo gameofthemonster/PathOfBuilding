@@ -11,13 +11,13 @@ import { join } from "path"
 const FIXTURES_DIR = join(import.meta.dir, "../../test/fixtures")
 const WEB_DIR = join(import.meta.dir, "../..")
 const REPO_ROOT = join(import.meta.dir, "../../..")
-const PORT = parseInt(process.env["PORT"] ?? "3000", 10)
-const VITE_PORT = parseInt(process.env["VITE_PORT"] ?? "5173", 10)
+const API_PORT = parseInt(process.env["API_PORT"] ?? "3001", 10)
+const DEV_PORT = parseInt(process.env["DEV_PORT"] ?? "3000", 10)
 const POOL_SIZE = parseInt(process.env["POOL_SIZE"] ?? "4", 10)
 
-// 启动 Vite 子进程（内部端口，不对外暴露）
+// Vite 作为用户入口（3000），内置 proxy 将 /api 转发到 Bun（3001）
 const viteProc = Bun.spawn(
-  ["bun", "node_modules/.bin/vite", "--port", String(VITE_PORT)],
+  ["bun", "node_modules/.bin/vite", "--port", String(DEV_PORT), "--strictPort"],
   {
     cwd: WEB_DIR,
     stdout: "inherit",
@@ -55,48 +55,9 @@ interface RouteRequest extends Request {
   params: Record<string, string>
 }
 
-async function waitForVite(): Promise<void> {
-  const deadline = Date.now() + 30_000
-  while (Date.now() < deadline) {
-    const socket = await Bun.connect({
-      hostname: "127.0.0.1",
-      port: VITE_PORT,
-      socket: { open() {}, close() {}, error() {}, data() {} },
-    }).catch(() => null)
-    if (socket) {
-      socket.end()
-      return
-    }
-    await Bun.sleep(200)
-  }
-  throw new Error(`Vite failed to start on port ${VITE_PORT} within 30s`)
-}
-
-async function proxyToVite(req: Request): Promise<Response> {
-  const url = new URL(req.url)
-  url.protocol = "http:"
-  url.host = `127.0.0.1:${VITE_PORT}`
-
-  const headers = new Headers(req.headers)
-  headers.set("host", `127.0.0.1:${VITE_PORT}`)
-
-  try {
-    const init: RequestInit = { method: req.method, headers }
-    if (req.method !== "GET" && req.method !== "HEAD") {
-      init.body = req.body
-    }
-    return await fetch(url.toString(), init)
-  } catch {
-    return new Response("Frontend server unavailable", { status: 502 })
-  }
-}
-
-console.log("[Server] Starting Vite and warming up LuaJIT pool...")
-Promise.all([waitForVite(), pool.warmup()]).then(() => {
-  console.log(`[Server] Ready — http://localhost:${PORT}`)
-
+pool.warmup().then(() => {
   Bun.serve({
-    port: PORT,
+    port: API_PORT,
     routes: {
       "/api/fixtures": { GET: handleListFixtures },
       "/api/fixtures/:name": { GET: (req) => handleGetFixture(req as RouteRequest) },
@@ -105,38 +66,11 @@ Promise.all([waitForVite(), pool.warmup()]).then(() => {
       "/api/tree-data": { GET: async () => jsonResponse(await getTreeDataCached(), 200) },
       "/api/i18n": { GET: handleI18n },
     },
-    async fetch(req, server) {
-      // WebSocket（Vite HMR）
-      if (req.headers.get("upgrade") === "websocket") {
-        const viteWsUrl = req.url
-          .replace(`localhost:${PORT}`, `127.0.0.1:${VITE_PORT}`)
-          .replace(/^http/, "ws")
-        const viteWs = new WebSocket(viteWsUrl)
-        const ok = server.upgrade(req, { data: { viteWs } })
-        if (!ok) viteWs.close()
-        return
-      }
-
-      return proxyToVite(req)
-    },
-    websocket: {
-      open(ws) {
-        const viteWs: WebSocket = (ws.data as { viteWs: WebSocket }).viteWs
-        viteWs.onmessage = (e) =>
-          ws.readyState === 1 && ws.send(e.data)
-        viteWs.onclose = () => ws.close()
-        viteWs.onerror = () => ws.close()
-      },
-      message(ws, msg) {
-        const viteWs: WebSocket = (ws.data as { viteWs: WebSocket }).viteWs
-        if (viteWs.readyState === WebSocket.OPEN) viteWs.send(msg)
-      },
-      close(ws) {
-        const viteWs: WebSocket = (ws.data as { viteWs: WebSocket }).viteWs
-        if (viteWs.readyState === WebSocket.OPEN) viteWs.close()
-      },
+    fetch() {
+      return new Response("Not Found", { status: 404 })
     },
   })
+  console.log(`[Server] API ready on http://localhost:${API_PORT}`)
 }).catch((err) => {
   console.error("[Server] Failed to start:", err)
   viteProc.kill()
