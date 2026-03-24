@@ -23,7 +23,9 @@ dofile("HeadlessWrapper.lua")
 -- 导出树节点数据到文件（仅首次运行时）
 local treeDataPath = "../web/tree-data.json"
 local f = io.open(treeDataPath, "r")
-if not f then
+local fileEmpty = f == nil or f:read(1) == nil
+if f then f:close() end
+if fileEmpty then
   -- 用一个最小 XML 触发引擎初始化（使 build.spec.tree 可用）
   local minXml = [[<?xml version="1.0" encoding="UTF-8"?>
 <PathOfBuilding>

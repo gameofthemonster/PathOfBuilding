@@ -19,7 +19,7 @@ const STAT_GROUPS = [
       { key: "TotalDot", label: "持续伤 DPS", fmt: "int" },
       { key: "AverageHit", label: "平均击中", fmt: "int" },
       { key: "CritChance", label: "暴击率", fmt: "pct" },
-      { key: "CritMultiplier", label: "暴击伤害", fmt: "pct" },
+      { key: "CritMultiplier", label: "暴击伤害", fmt: "pct_x100" },
       { key: "Speed", label: "攻击速度", fmt: "dec" },
       { key: "HitChance", label: "命中率", fmt: "pct" },
     ],
@@ -60,6 +60,7 @@ const STAT_GROUPS = [
 
 function formatStat(value: number, fmt: string): string {
   if (fmt === "pct") return `${value.toFixed(1)}%`;
+  if (fmt === "pct_x100") return `${(value * 100).toFixed(0)}%`;
   if (fmt === "int") return Math.round(value).toLocaleString();
   return value.toFixed(2);
 }
