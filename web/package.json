@@ -24,6 +24,7 @@
     "@tailwindcss/vite": "^4.2.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "fast-xml-parser": "^5.5.9",
     "lucide-react": "^1.0.1",
     "pako": "^2.1.0",
     "radix-ui": "^1.4.3",

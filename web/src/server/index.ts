@@ -2,6 +2,7 @@ import { WorkerPool } from "./worker-pool"
 import { SessionStore } from "./session-store"
 import { decodeBuildString } from "./decode"
 import { parseBuildXml } from "./xml-parser"
+import { applyPatch, type BuildPatch } from "./xml-patcher"
 import { randomUUID } from "crypto"
 
 const PORT = 3001
@@ -117,7 +118,7 @@ async function handleRecalculate(
   req: Request,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
-  let body: { sessionId?: string; patch?: Record<string, unknown> }
+  let body: { sessionId?: string; patch?: BuildPatch }
   try {
     body = await req.json()
   } catch {
@@ -128,13 +129,27 @@ async function handleRecalculate(
     return jsonResponse({ error: "Missing sessionId" }, 400, corsHeaders)
   }
 
-  const xml = sessions.get(body.sessionId)
-  if (!xml) {
+  const originalXml = sessions.get(body.sessionId)
+  if (!originalXml) {
     return jsonResponse({ error: "Session not found or expired" }, 404, corsHeaders)
   }
 
-  // TODO: Phase 2 实现 patch 应用逻辑
-  // 目前直接用原始 XML 重新计算
+  // 应用 patch（如果有），否则用原始 XML
+  let xml: string
+  if (body.patch) {
+    try {
+      xml = applyPatch(originalXml, body.patch)
+    } catch (err) {
+      return jsonResponse(
+        { error: `Failed to apply patch: ${String(err)}` },
+        400,
+        corsHeaders
+      )
+    }
+  } else {
+    xml = originalXml
+  }
+
   let result
   try {
     result = await pool.calculate(xml)
