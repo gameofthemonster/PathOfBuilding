@@ -16,6 +16,8 @@ export function usePassiveTree(allocNodes: number[], clusterNodes?: ClusterNode[
 
   // Merge static nodes with cluster subgraph nodes; cluster nodes override by id if same id exists
   const nodes = useMemo<TreeNode[]>(() => {
+    console.log("[usePassiveTree] clusterNodes count:", clusterNodes?.length)
+    clusterNodes?.forEach((cn, i) => console.log(`  [${i}] id=${cn.id} type=${cn.type} x=${cn.x} y=${cn.y} name=${cn.name}`))
     if (!clusterNodes?.length) return staticNodes
     const extra = clusterNodes.map((cn) => ({
       id: cn.id,
@@ -28,7 +30,10 @@ export function usePassiveTree(allocNodes: number[], clusterNodes?: ClusterNode[
       icon: cn.icon,
       ascendancyName: undefined,
     }))
-    return [...staticNodes, ...extra]
+    // cluster nodes override static nodes by id (inner socket nodes get relocated positions)
+    const clusterIdSet = new Set(extra.map((n) => n.id))
+    const filtered = staticNodes.filter((n) => !clusterIdSet.has(n.id))
+    return [...filtered, ...extra]
   }, [staticNodes, clusterNodes])
 
   function toggleNode(nodeId: number) {

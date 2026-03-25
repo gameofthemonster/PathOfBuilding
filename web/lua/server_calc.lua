@@ -47,7 +47,10 @@ if fileEmpty then
     local nodes = {}
     local tree = build.spec.tree
     for id, node in pairs(tree.nodes) do
-      if node.type ~= "class" and node.x and node.y then
+      -- 排除 class 节点、proxy 节点、以及有 parent 的 expansionJewel 内部 socket 占位节点
+      -- （这些占位节点由 BuildSubgraph 动态生成，不应出现在静态树中）
+      local isInnerClusterSocket = node.expansionJewel and node.expansionJewel.parent
+      if node.type ~= "class" and node.x and node.y and not node.isProxy and not isInnerClusterSocket then
         -- node.sd 是节点的显示文本（stat descriptions），node.mods 是解析后对象（含函数，不可序列化）
         local rawMods = {}
         if type(node.sd) == "table" then
@@ -466,6 +469,29 @@ local EXPORT_STATS = {
   "RageEffect", "MaximumRage", "RageRegenRecovery", "InherentRageLoss", "InherentRageLossDelay",
 }
 
+-- 提取 POB colorCodes 颜色码中的 hex 值（如 "^xE05030" → "E05030"）
+local function extractColorHex(colorStr)
+  if type(colorStr) ~= "string" then return nil end
+  return colorStr:match("^%^x([0-9A-Fa-f]+)$")
+end
+
+-- matchFlagsLocal：镜像 Build.lua 中的 matchFlags，用于 displayStats 评估
+local function matchFlagsLocal(reqFlags, notFlags, flags)
+  if type(reqFlags) == "string" then reqFlags = {reqFlags} end
+  if reqFlags then
+    for _, flag in ipairs(reqFlags) do
+      if not flags[flag] then return nil end
+    end
+  end
+  if type(notFlags) == "string" then notFlags = {notFlags} end
+  if notFlags then
+    for _, flag in ipairs(notFlags) do
+      if flags[flag] then return nil end
+    end
+  end
+  return true
+end
+
 -- 长度前缀协议循环：读 XML → 计算 → 输出 JSON
 while true do
   local lenLine = io.read("*l")
@@ -475,6 +501,13 @@ while true do
 
   local xml = io.read(len)
   if not xml then break end
+
+  -- 诊断：打印 XML 中 nodes 属性的前 80 个字符（只看第一个 <Spec nodes=...>）
+  do
+    local nodesVal = xml:match('nodes="([^"]*)"')
+    io.stderr:write(string.format("[DBG] XML nodes attr: %s\n",
+      nodesVal and ("len=" .. #nodesVal .. " preview=" .. nodesVal:sub(1,60)) or "NOT FOUND"))
+  end
 
   local ok, result = pcall(function()
     local loadOk, loadErr = pcall(function()
@@ -495,33 +528,97 @@ while true do
       end
     end
 
-    -- 使用 CALCS 模式重新计算（与 POB Calcs Tab 行为一致）。
-    -- 关键：将 calcsTab.input.skill_number 同步为 build.mainSocketGroup，
-    -- 使 CALCS 模式计算与用户选定的主技能相同的 socket group。
-    -- （CalcSetup.lua:1426 中 CALCS 模式用 calcsInput.skill_number 而非 build.mainSocketGroup）
+    -- 同步 CALCS 模式所需的 input：
+    -- 1. skill_number → build.mainSocketGroup（选定哪个 socket group）
+    -- 2. mainActiveSkillCalcs → mainActiveSkill（选定 group 内哪个 active skill）
+    --    CalcSetup.lua:1698 中 CALCS 模式用 mainActiveSkillCalcs，默认为 1，
+    --    而 MAIN 模式用 mainActiveSkill（从 XML 读取）。不同步会导致 CALCS 算错技能。
     if build.calcsTab and build.calcsTab.input then
       build.calcsTab.input.skill_number = build.mainSocketGroup or 1
+    end
+    local activeSocketGroup = build.skillsTab.socketGroupList[build.mainSocketGroup or 1]
+    if activeSocketGroup then
+      activeSocketGroup.mainActiveSkillCalcs = activeSocketGroup.mainActiveSkill or 1
     end
     local ok_calcs, calcsEnv = pcall(function()
       return build.calcsTab.calcs.buildOutput(build, "CALCS")
     end)
 
-    -- 优先从 CALCS 模式读取所有 stats（与 POB Calcs Tab 一致）；
-    -- 若 CALCS 失败则回退到 mainOutput（MAIN 模式）。
-    local stats = {}
-    if ok_calcs and calcsEnv and calcsEnv.player and calcsEnv.player.output then
-      local calcsOut = calcsEnv.player.output
-      for _, key in ipairs(EXPORT_STATS) do
-        local v = calcsOut[key]
-        if type(v) == "number" then
-          stats[key] = v
+    -- 诊断数据收集（通过 warnings 传回前端）
+    local debugWarnings = {}
+    do
+      -- 正确字段：build.itemsTab.items（itemList 不存在）
+      local itemCount = 0
+      if build.itemsTab and build.itemsTab.items then
+        for _ in pairs(build.itemsTab.items) do itemCount = itemCount + 1 end
+      end
+      -- activeItemSet slots
+      local slottedCount = 0
+      local slottedDetails = ""
+      if build.itemsTab and build.itemsTab.activeItemSet then
+        local ais = build.itemsTab.activeItemSet
+        for k, v in pairs(ais) do
+          if type(v) == "table" and v.selItemId and v.selItemId ~= 0 then
+            slottedCount = slottedCount + 1
+            slottedDetails = slottedDetails .. k .. "=" .. v.selItemId .. " "
+          end
         end
       end
-    else
-      -- 回退：从 MAIN 模式读取
-      local output = build.calcsTab.mainOutput
+      local activeSetId = build.itemsTab and build.itemsTab.activeItemSetId or "nil"
+      local grpCount = build.skillsTab and #build.skillsTab.socketGroupList or 0
+      local mainSG = build.mainSocketGroup or 0
+      local mainAS = activeSocketGroup and (activeSocketGroup.mainActiveSkill or 0) or 0
+      -- 检查被动树节点数
+      local allocCount = 0
+      if build.spec and build.spec.allocNodes then
+        for _ in pairs(build.spec.allocNodes) do allocCount = allocCount + 1 end
+      end
+      local bLevel = build.characterLevel or 0
+      local classId = build.spec and build.spec.curClassId or -1
+      local treeVer = build.spec and build.spec.treeVersion or "nil"
+      local treeNodeCount = 0
+      if build.spec and build.spec.nodes then
+        for _ in pairs(build.spec.nodes) do treeNodeCount = treeNodeCount + 1 end
+      end
+      local subgraphCount = build.spec and build.spec.allocSubgraphNodes and #build.spec.allocSubgraphNodes or 0
+      -- 检查 treeTab 和 specList 状态
+      local treeTabInfo = "nil"
+      if build.treeTab then
+        local specCount = build.treeTab.specList and #build.treeTab.specList or -1
+        treeTabInfo = "ok specCount=" .. specCount
+        local specListInfo = ""
+        if build.treeTab.specList then
+          for i, sp in ipairs(build.treeTab.specList) do
+            local ac = 0
+            if sp.allocNodes then for _ in pairs(sp.allocNodes) do ac = ac + 1 end end
+            specListInfo = specListInfo .. "spec" .. i .. "=" .. ac .. "/" .. (sp.treeVersion or "?") .. " "
+          end
+        end
+        if specListInfo ~= "" then
+          table.insert(debugWarnings, "DBG specList: " .. specListInfo)
+        end
+      end
+      table.insert(debugWarnings, string.format(
+        "DBG items=%d slotted=%d mainSG=%d mainAS=%d level=%d class=%d treeVer=%s allocNodes=%d treeNodes=%d subgraph=%d treeTab=%s",
+        itemCount, slottedCount, mainSG, mainAS, bLevel, classId, treeVer, allocCount, treeNodeCount, subgraphCount, treeTabInfo
+      ))
+      local mo = build.calcsTab.mainOutput
+      if mo then
+        table.insert(debugWarnings, string.format(
+          "DBG Life=%s Fire=%s Cold=%s Light=%s Chaos=%s Crit=%s",
+          tostring(mo.Life), tostring(mo.FireResist), tostring(mo.ColdResist),
+          tostring(mo.LightningResist), tostring(mo.ChaosResist), tostring(mo.CritChance)
+        ))
+      end
+    end
+
+    -- EXPORT_STATS：直接使用 MAIN 模式的 mainOutput（与 POB 桌面侧边栏一致）。
+    -- OnFrame 时 Build:BuildOutput() 已用正确的 mainActiveSkill 和 mainSocketGroup 计算好。
+    local stats = {}
+    local mainOut = build.calcsTab.mainOutput
+    if mainOut then
       for _, key in ipairs(EXPORT_STATS) do
-        local v = output[key]
+        local v = mainOut[key]
         if type(v) == "number" then
           stats[key] = v
         end
@@ -529,6 +626,9 @@ while true do
     end
 
     local warnings = {}
+    for _, msg in ipairs(debugWarnings) do
+      table.insert(warnings, msg)
+    end
     if build.controls and build.controls.warnings and build.controls.warnings.lines then
       for _, msg in ipairs(build.controls.warnings.lines) do
         table.insert(warnings, msg)
@@ -622,12 +722,14 @@ while true do
       end
     end
 
-    -- 收集星团珠宝子图节点（id >= 0x10000，由 PassiveSpec:BuildSubgraph 动态生成）
+    -- 收集星团珠宝子图节点（id >= 0x10000 的 Notable/Normal 节点，以及
+    -- id < 0x10000 但 expansionJewel 已设置的内部 Socket 节点，均由 PassiveSpec:BuildSubgraph 重新定位）
     local clusterNodes = {}
     if build.spec then
       for _, node in pairs(build.spec.nodes or {}) do
         local nid = tonumber(node.id) or 0
-        if nid >= 0x10000 and node.x and node.y then
+        local isClusterSocket = nid < 0x10000 and node.expansionJewel and node.type == "Socket"
+        if (nid >= 0x10000 or isClusterSocket) and node.x and node.y then
           local rawMods = {}
           if type(node.sd) == "table" then
             for _, m in ipairs(node.sd) do
@@ -660,8 +762,96 @@ while true do
       end
     end
 
+    io.stderr:write("[server_calc] clusterNodes count: " .. #clusterNodes .. "\n")
+    for i, cn in ipairs(clusterNodes) do
+      io.stderr:write(string.format("  [%d] id=%s type=%s name=%s x=%.0f y=%.0f\n", i, tostring(cn.id), tostring(cn.type), tostring(cn.name), cn.x or 0, cn.y or 0))
+    end
+    -- 调试：jewels/sockets 信息发到前端 warnings
+    if build.spec and build.spec.jewels then
+      local jewelCount = 0
+      local jewelStr = ""
+      for nodeId, itemId in pairs(build.spec.jewels) do
+        jewelCount = jewelCount + 1
+        local item = build.itemsTab and build.itemsTab.items and build.itemsTab.items[itemId]
+        local jValid = item and item.jewelData and item.jewelData.clusterJewelValid
+        jewelStr = jewelStr .. nodeId .. "→" .. itemId .. (jValid and "[CJ]" or "[X]") .. " "
+      end
+      table.insert(debugWarnings, "DBG jewels=" .. jewelCount .. ": " .. jewelStr)
+    else
+      table.insert(debugWarnings, "DBG jewels=nil")
+    end
+    if build.spec and build.spec.tree and build.spec.tree.sockets then
+      local sockCount = 0
+      local sockStr = ""
+      for nodeId, _ in pairs(build.spec.tree.sockets) do
+        sockCount = sockCount + 1
+        if sockCount <= 8 then sockStr = sockStr .. tostring(nodeId) .. " " end
+      end
+      table.insert(debugWarnings, "DBG treeSocks=" .. sockCount .. ": " .. sockStr)
+    else
+      table.insert(debugWarnings, "DBG treeSocks=nil")
+    end
+    local highIdCount = 0
+    if build.spec and build.spec.nodes then
+      for _, node in pairs(build.spec.nodes) do
+        local numId = tonumber(node.id) or 0
+        if numId >= 0x10000 then highIdCount = highIdCount + 1 end
+      end
+    end
+    table.insert(debugWarnings, "DBG highNodes=" .. highIdCount)
+
+    -- 使用 POB 的 BuildDisplayStats 评估 displayStats
+    -- 使用 mainEnv（MAIN 模式）以与 POB 桌面侧边栏完全一致。
+    -- 若 mainEnv 不可用则回退到 calcsEnv。
+    local displayStatsResult = {}
+    local displayActor = (build.calcsTab.mainEnv and build.calcsTab.mainEnv.player) or
+                         (ok_calcs and calcsEnv and calcsEnv.player)
+    if displayActor and displayActor.mainSkill and displayActor.mainSkill.skillFlags and displayActor.output then
+      local skillFlags = displayActor.mainSkill.skillFlags
+      local output = displayActor.output
+      for _, statData in ipairs(build.displayStats or {}) do
+        if not statData.stat then
+          -- 空条目 = 分隔符（避免连续重复）
+          if #displayStatsResult > 0 and not displayStatsResult[#displayStatsResult].separator then
+            table.insert(displayStatsResult, {separator = true})
+          end
+        elseif not statData.hideStat and matchFlagsLocal(statData.flag, statData.notFlag, skillFlags) then
+          local statVal = output[statData.stat]
+          -- childStat: 嵌套输出值（如 output.MainHand.Accuracy）
+          if statVal ~= nil and statData.childStat then
+            statVal = type(statVal) == "table" and statVal[statData.childStat] or nil
+          end
+          if type(statVal) == "number" then
+            local show = false
+            if statData.condFunc then
+              local ok2, res = pcall(statData.condFunc, statVal, output)
+              show = ok2 and res or false
+            else
+              show = statVal ~= 0
+            end
+            if show then
+              -- 镜像 Build.lua FormatStat 的 pc/mod 变换
+              local val = statVal * ((statData.pc or statData.mod) and 100 or 1) - (statData.mod and 100 or 0)
+              table.insert(displayStatsResult, {
+                stat = statData.stat,
+                label = statData.label,
+                value = val,
+                fmt = statData.fmt,
+                color = extractColorHex(statData.color),
+              })
+            end
+          end
+        end
+      end
+      -- 去掉末尾的分隔符
+      while #displayStatsResult > 0 and displayStatsResult[#displayStatsResult].separator do
+        table.remove(displayStatsResult)
+      end
+    end
+
     return json.encode({
       stats = stats, warnings = warnings, breakdown = breakdown,
+      displayStats = displayStatsResult,
       skillParts = skillParts, skillPartIndex = skillPartIndex,
       skillPartGemGroupIndex = skillPartGemGroupIndex, skillPartGemIndex = skillPartGemIndex,
       clusterNodes = clusterNodes,

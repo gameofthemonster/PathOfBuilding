@@ -676,6 +676,9 @@ export function PassiveTreeTab({ buildConfig, clusterNodes, onAllocChange }: Pro
         ctx.globalCompositeOperation = "screen";
         for (const node of visibleNodes) {
           if (node.type !== "Socket" || node.ascendancyName) continue;
+          // Cluster jewel sockets (Large/Medium/Small) don't have an area-of-influence radius
+          const nm2 = node.name ?? "";
+          if (nm2.includes("Large") || nm2.includes("Medium") || nm2.includes("Small")) continue;
           const hasJewel = !!bc.tree.jewels?.[node.id];
           if (!hasJewel) continue;
           const sx = node.x * sc + ox;
