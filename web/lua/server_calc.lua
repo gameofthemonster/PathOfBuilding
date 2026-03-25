@@ -20,6 +20,9 @@ end
 -- 一次性加载 POB 引擎（约 1-3 秒）
 dofile("HeadlessWrapper.lua")
 
+-- Load CalcSections pre-renderer module
+local calcSectionsRenderer = dofile("calc_sections_renderer.lua")
+
 -- Headless override: 自动接受版本转换，跳过 UI 弹窗（Build:Init 第 101-104 行的版本检查）
 -- 若 XML 的 <Build targetVersion> 不等于 liveTargetVersion("3_0")，
 -- 原版 loadBuildFromXML 会提前 return 并跳过 calcsTab:BuildOutput()，导致 mainOutput 为 nil
@@ -693,6 +696,19 @@ while true do
       end
     end
 
+    -- Pre-render CalcSections section tree
+    local calcSections = {}
+    if ok_calcs and calcsEnv and calcsEnv.player and calcsEnv.player.output then
+      local ok_render, rendered = pcall(function()
+        return calcSectionsRenderer.renderCalcSections(calcsEnv.player.output)
+      end)
+      if ok_render and type(rendered) == "table" then
+        calcSections = rendered
+      else
+        io.stderr:write("[server_calc] renderCalcSections error: " .. tostring(rendered) .. "\n")
+      end
+    end
+
     -- Skill parts (calculation variants) for the current main active skill
     local skillParts = {}
     local skillPartIndex = 1
@@ -855,6 +871,7 @@ while true do
       skillParts = skillParts, skillPartIndex = skillPartIndex,
       skillPartGemGroupIndex = skillPartGemGroupIndex, skillPartGemIndex = skillPartGemIndex,
       clusterNodes = clusterNodes,
+      calcSections = calcSections,
     })
   end)
 
