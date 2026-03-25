@@ -2,6 +2,7 @@ import { useRef, useEffect, useLayoutEffect, useCallback, useState } from "react
 import type { BuildConfig } from "../types"
 import { usePassiveTree } from "../hooks/usePassiveTree"
 import type { TreeNode } from "../lib/tree-data"
+import { useI18n } from "../hooks/useI18n"
 
 // ─── Sprite types ────────────────────────────────────────────────────────────
 interface SpriteCoord { url: string; x: number; y: number; w: number; h: number }
@@ -49,6 +50,7 @@ export function PassiveTreeTab({ buildConfig, onAllocChange }: Props) {
 
   const [tooltip, setTooltip] = useState<{ node: TreeNode; x: number; y: number } | null>(null)
   const { nodes, allocated, toggleNode } = usePassiveTree(buildConfig.tree.allocNodes)
+  const { t } = useI18n()
 
   // Fetch sprite coords once
   useEffect(() => {
@@ -374,10 +376,10 @@ export function PassiveTreeTab({ buildConfig, onAllocChange }: Props) {
       {tooltip && (
         <div className="pointer-events-none absolute z-50 max-w-[220px] rounded border border-white/20 bg-black/90 px-3 py-2 text-xs text-white shadow-lg"
           style={{ left: tooltip.x + 14, top: tooltip.y - 10 }}>
-          <div className="font-semibold text-yellow-300 mb-1">{tooltip.node.name || "(无名)"}</div>
-          <div className="text-white/50 text-[10px] mb-1 capitalize">{tooltip.node.type}</div>
+          <div className="font-semibold text-yellow-300 mb-1">{t(tooltip.node.name) || "(无名)"}</div>
+          <div className="text-white/50 text-[10px] mb-1 capitalize">{t(tooltip.node.type)}</div>
           {tooltip.node.mods.length > 0
-            ? <ul className="space-y-0.5">{tooltip.node.mods.map((m, i) => <li key={i} className="text-white/80">{m}</li>)}</ul>
+            ? <ul className="space-y-0.5">{tooltip.node.mods.map((m, i) => <li key={i} className="text-white/80">{t(m)}</li>)}</ul>
             : <div className="text-white/40 italic">无属性</div>
           }
         </div>
