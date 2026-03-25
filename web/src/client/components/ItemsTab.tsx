@@ -65,17 +65,17 @@ interface ModTypeInfo {
 }
 const MOD_TYPE_DISPLAY: Record<string, ModTypeInfo> = {
   crafted: {
-    label: "锁定",
+    label: "工艺",
     textColor: "text-yellow-300/90",
     labelColor: "text-yellow-400/70",
   },
   exarch: {
-    label: "炙热",
+    label: "焚界",
     textColor: "text-orange-300/90",
     labelColor: "text-orange-400/70",
   },
   eater: {
-    label: "吞噬",
+    label: "灭世",
     textColor: "text-teal-300/90",
     labelColor: "text-teal-400/70",
   },
@@ -95,7 +95,7 @@ const MOD_TYPE_DISPLAY: Record<string, ModTypeInfo> = {
     labelColor: "text-amber-400/70",
   },
   synthesis: {
-    label: "合成",
+    label: "忆境",
     textColor: "text-fuchsia-300/90",
     labelColor: "text-fuchsia-400/70",
   },
