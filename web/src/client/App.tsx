@@ -91,9 +91,10 @@ export default function App() {
     setCurrentBuildConfig({ ...currentBuildConfig, skills: newSkills })
 
     // Build patch in the format expected by BuildPatch.skills
-    const gemPatch: { index: number; level?: number; quality?: number; enabled?: boolean } = {
+    const gemPatch: { index: number; skillId?: string; level?: number; quality?: number; enabled?: boolean } = {
       index: gemIndex,
     }
+    if (updated.skillId !== undefined) gemPatch.skillId = updated.skillId
     if (updated.level !== undefined) gemPatch.level = updated.level
     if (updated.quality !== undefined) gemPatch.quality = updated.quality
     if (updated.enabled !== undefined) gemPatch.enabled = updated.enabled
@@ -129,10 +130,27 @@ export default function App() {
   function handleMainSkillChange(index: number) {
     if (!currentBuildConfig) return
     setCurrentBuildConfig({ ...currentBuildConfig, mainSocketGroup: index })
-    // 立即触发重新计算（不等"重新计算"按钮）
     if (sessionId) {
       recalculate({ mainSocketGroup: index })
     }
+  }
+
+  function handleActiveSkillChange(groupIndex: number, activeSkillIndex: number) {
+    if (!currentBuildConfig || !sessionId) return
+    const newSkills = currentBuildConfig.skills.map((g, i) =>
+      i === groupIndex ? { ...g, mainActiveSkill: activeSkillIndex } : g
+    )
+    setCurrentBuildConfig({ ...currentBuildConfig, skills: newSkills })
+    recalculate({ skills: [{ index: groupIndex, mainActiveSkill: activeSkillIndex }] })
+  }
+
+  function handleSkillPartChange(partIndex: number) {
+    if (!sessionId || !currentResult) return
+    const { skillPartGemGroupIndex, skillPartGemIndex } = currentResult
+    if (skillPartGemGroupIndex === undefined || skillPartGemIndex === undefined) return
+    recalculate({
+      skills: [{ index: skillPartGemGroupIndex, gems: [{ index: skillPartGemIndex, skillPart: partIndex }] }],
+    })
   }
 
   function handleAllocChange(allocNodes: number[]) {
@@ -184,6 +202,9 @@ export default function App() {
               skills={currentBuildConfig.skills}
               mainSocketGroup={currentBuildConfig.mainSocketGroup}
               onChange={handleMainSkillChange}
+              skillParts={currentResult?.skillParts}
+              skillPartIndex={currentResult?.skillPartIndex}
+              onSkillPartChange={handleSkillPartChange}
             />
           )}
           {currentResult ? (
@@ -207,6 +228,8 @@ export default function App() {
             onSkillChange={handleSkillChange}
             onConfigChange={handleConfigChange}
             onAllocChange={handleAllocChange}
+            onMainSkillChange={handleMainSkillChange}
+            onSkillPartChange={handleSkillPartChange}
           />
         </main>
       </div>

@@ -13,7 +13,7 @@ export interface BuildPatch {
   }
   skills?: Array<{
     index: number
-    gems?: Array<{ index: number; level?: number; quality?: number; enabled?: boolean }>
+    gems?: Array<{ index: number; level?: number; quality?: number; enabled?: boolean; skillPart?: number }>
   }>
   config?: Record<string, unknown>
 }

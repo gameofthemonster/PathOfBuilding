@@ -11,6 +11,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": `http://localhost:${API_PORT}`,
+      "/tree-assets": `http://localhost:${API_PORT}`,
     },
   },
 })

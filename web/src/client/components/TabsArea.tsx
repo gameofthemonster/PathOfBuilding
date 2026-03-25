@@ -14,12 +14,14 @@ interface Props {
   onSkillChange: (groupIndex: number, gemIndex: number, updated: Partial<GemInstance>) => void
   onConfigChange: (key: string, value: unknown) => void
   onAllocChange?: (allocNodes: number[]) => void
+  onMainSkillChange?: (index: number) => void
+  onSkillPartChange?: (partIndex: number) => void
 }
 
 const VALID_TABS = ["stats", "items", "skills", "tree", "config"]
 const TABS_REQUIRING_BUILD = ["items", "skills", "tree", "config"]
 
-export function TabsArea({ buildConfig, result, onItemChange, onSkillChange, onConfigChange, onAllocChange }: Props) {
+export function TabsArea({ buildConfig, result, onItemChange, onSkillChange, onConfigChange, onAllocChange, onMainSkillChange, onSkillPartChange }: Props) {
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     const tab = params.get("tab")
@@ -58,9 +60,9 @@ export function TabsArea({ buildConfig, result, onItemChange, onSkillChange, onC
         <TabsTrigger value="tree" disabled={!buildConfig}>天赋树 <span className="text-xs text-muted-foreground/60 font-normal ml-0.5">Tree</span></TabsTrigger>
         <TabsTrigger value="config" disabled={!buildConfig}>配置 <span className="text-xs text-muted-foreground/60 font-normal ml-0.5">Config</span></TabsTrigger>
       </TabsList>
-      <TabsContent value="stats" className="flex-1 overflow-y-auto min-h-0">
+      <TabsContent value="stats" className="flex-1 min-h-0 overflow-hidden">
         {result ? (
-          <CalcsTab result={result} />
+          <CalcsTab result={result} buildConfig={buildConfig} onMainSkillChange={onMainSkillChange} onSkillPartChange={onSkillPartChange} />
         ) : (
           <div className="p-4 text-sm text-muted-foreground">
             请输入 Build String 并点击计算
@@ -76,7 +78,12 @@ export function TabsArea({ buildConfig, result, onItemChange, onSkillChange, onC
       </TabsContent>
       <TabsContent value="skills" className="p-4 overflow-y-auto flex-1">
         {buildConfig ? (
-          <SkillsTab buildConfig={buildConfig} onSkillChange={onSkillChange} />
+          <SkillsTab
+            buildConfig={buildConfig}
+            mainSocketGroup={buildConfig.mainSocketGroup}
+            onSkillChange={onSkillChange}
+            onMainSkillChange={onMainSkillChange ?? (() => {})}
+          />
         ) : (
           <div className="text-sm text-muted-foreground">技能（Phase 3）</div>
         )}

@@ -1,5 +1,14 @@
 import type { BuildConfig, SocketGroup, GemInstance, Item } from "../client/types"
 
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+}
+
 /**
  * 从 POB XML 文本中提取 BuildConfig。
  * 使用正则 + 简单属性解析方式。
@@ -9,13 +18,46 @@ export function parseBuildXml(xml: string): BuildConfig {
   const buildMatch = xml.match(/<Build\s+([^>]*)>/)
   const buildAttrs = buildMatch ? parseAttributes(buildMatch[1]) : {}
 
-  // 提取 Tree > Spec
-  const specMatch = xml.match(/<Spec\s+([^>]*)/)
-  const specAttrs = specMatch ? parseAttributes(specMatch[1]) : {}
+  // 提取 Tree > 找到 activeSpec 对应的 Spec 内容
+  const treeTagMatch = xml.match(/<Tree\s+([^>]*)>/)
+  const treeAttrs = treeTagMatch ? parseAttributes(treeTagMatch[1]) : {}
+  const activeSpecIdx = parseInt(treeAttrs["activeSpec"] ?? "1", 10)
+
+  let specAttrs: Record<string, string> = {}
+  let activeSpecContent = ""
+  const specRe = /<Spec\s+([^>]*)>([\s\S]*?)<\/Spec>/g
+  let specM: RegExpExecArray | null
+  let specCount = 0
+  while ((specM = specRe.exec(xml)) !== null) {
+    specCount++
+    if (specCount === activeSpecIdx) {
+      specAttrs = parseAttributes(specM[1])
+      activeSpecContent = specM[2]
+      break
+    }
+  }
+  // 如果没找到对应 spec，回退到第一个 Spec 标签属性
+  if (!specAttrs["nodes"]) {
+    const fallback = xml.match(/<Spec\s+([^>]*)/)
+    if (fallback) specAttrs = parseAttributes(fallback[1])
+  }
 
   const allocNodes = specAttrs["nodes"]
     ? specAttrs["nodes"].trim().split(/[\s,]+/).filter(Boolean).map(Number)
     : []
+
+  // 解析当前 spec 的插槽珠宝映射 nodeId → itemId
+  const jewels: Record<number, number> = {}
+  if (activeSpecContent) {
+    const sockRe = /<Socket\s+([^>]*?)\/>/g
+    let sockM: RegExpExecArray | null
+    while ((sockM = sockRe.exec(activeSpecContent)) !== null) {
+      const sa = parseAttributes(sockM[1])
+      const nId = parseInt(sa["nodeId"] ?? "0", 10)
+      const iId = parseInt(sa["itemId"] ?? "0", 10)
+      if (nId && iId) jewels[nId] = iId
+    }
+  }
 
   // 提取 Skills
   const skills = parseSkills(xml)
@@ -37,6 +79,7 @@ export function parseBuildXml(xml: string): BuildConfig {
       classId: parseInt(specAttrs["classId"] ?? "0", 10),
       ascendClassId: parseInt(specAttrs["ascendClassId"] ?? "0", 10),
       allocNodes,
+      jewels: Object.keys(jewels).length ? jewels : undefined,
     },
     items,
     config,
@@ -49,7 +92,7 @@ function parseAttributes(attrStr: string): Record<string, string> {
   const re = /(\w+)="([^"]*)"/g
   let m: RegExpExecArray | null
   while ((m = re.exec(attrStr)) !== null) {
-    result[m[1]] = m[2]
+    result[m[1]] = decodeEntities(m[2])
   }
   return result
 }
@@ -142,8 +185,8 @@ function parseItems(xml: string): BuildConfig["items"] {
       }
     }
 
-    if (lineIdx < lines.length) name = lines[lineIdx]
-    if (lineIdx + 1 < lines.length) base = lines[lineIdx + 1]
+    if (lineIdx < lines.length) name = decodeEntities(lines[lineIdx])
+    if (lineIdx + 1 < lines.length) base = decodeEntities(lines[lineIdx + 1])
 
     // NORMAL/MAGIC 只有一行（base name）
     if (rarity === "NORMAL" || rarity === "MAGIC") {

@@ -25,7 +25,8 @@ export interface BuildPatch {
   }
   skills?: Array<{
     index: number
-    gems?: Array<{ index: number; level?: number; quality?: number; enabled?: boolean }>
+    mainActiveSkill?: number
+    gems?: Array<{ index: number; skillId?: string; level?: number; quality?: number; enabled?: boolean; skillPart?: number }>
   }>
   config?: Record<string, unknown>
   mainSocketGroup?: number
@@ -79,13 +80,19 @@ export function applyPatch(originalXml: string, patch: BuildPatch): string {
     const allSkills = collectSkills(root.Skills)
     for (const skillPatch of patch.skills) {
       const skill = allSkills[skillPatch.index]
-      if (!skill || !skillPatch.gems) continue
+      if (!skill) continue
+      if (skillPatch.mainActiveSkill !== undefined) {
+        skill["@_mainActiveSkill"] = String(skillPatch.mainActiveSkill)
+      }
+      if (!skillPatch.gems) continue
       for (const gemPatch of skillPatch.gems) {
         const gem = skill.Gem?.[gemPatch.index]
         if (!gem) continue
+        if (gemPatch.skillId !== undefined) gem["@_skillId"] = gemPatch.skillId
         if (gemPatch.level !== undefined) gem["@_level"] = String(gemPatch.level)
         if (gemPatch.quality !== undefined) gem["@_quality"] = String(gemPatch.quality)
         if (gemPatch.enabled !== undefined) gem["@_enabled"] = String(gemPatch.enabled)
+        if (gemPatch.skillPart !== undefined) gem["@_skillPart"] = String(gemPatch.skillPart)
       }
     }
   }
@@ -112,6 +119,14 @@ export function applyPatch(originalXml: string, patch: BuildPatch): string {
 
 function collectSkills(skillsNode: any): any[] {
   if (!skillsNode) return []
-  const sets = skillsNode.SkillSet ?? [skillsNode]
-  return sets.flatMap((s: any) => s.Skill ?? [])
+  if (!skillsNode.SkillSet) {
+    // 旧格式：Skills 直接包含 Skill 元素
+    return ([] as any[]).concat(skillsNode.Skill ?? [])
+  }
+  // 新格式：Skills 包含多个 SkillSet，只操作当前激活的 SkillSet
+  // (server_calc.lua 中的 skill index 是在当前激活 SkillSet 内的 0-based 索引)
+  const sets = ([] as any[]).concat(skillsNode.SkillSet)
+  const activeId = String(skillsNode["@_activeSkillSet"] ?? "1")
+  const activeSet = sets.find((s: any) => String(s["@_id"] ?? "1") === activeId) ?? sets[0]
+  return ([] as any[]).concat(activeSet?.Skill ?? [])
 }

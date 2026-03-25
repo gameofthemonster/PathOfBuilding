@@ -15,6 +15,28 @@ const API_PORT = parseInt(process.env["API_PORT"] ?? "3001", 10)
 const DEV_PORT = parseInt(process.env["DEV_PORT"] ?? "3000", 10)
 const POOL_SIZE = parseInt(process.env["POOL_SIZE"] ?? "4", 10)
 
+// 找最新树版本目录（格式 3_XX，取数值最大的）
+function getLatestTreeVersion(): string {
+  try {
+    const treeDataDir = join(REPO_ROOT, "src/TreeData")
+    const entries = readdirSync(treeDataDir)
+    let best = "3_28"
+    let bestNum = 0
+    for (const e of entries) {
+      const m = e.match(/^3_(\d+)$/)
+      if (m) {
+        const n = parseInt(m[1], 10)
+        if (n > bestNum) { bestNum = n; best = e }
+      }
+    }
+    return best
+  } catch {
+    return "3_28"
+  }
+}
+const TREE_VERSION = getLatestTreeVersion()
+const TREE_ASSETS_DIR = join(REPO_ROOT, "src/TreeData", TREE_VERSION)
+
 // Vite 作为用户入口（3000），内置 proxy 将 /api 转发到 Bun（3001）
 const viteProc = Bun.spawn(
   ["bun", "node_modules/.bin/vite", "--port", String(DEV_PORT), "--strictPort"],
@@ -39,6 +61,36 @@ async function getTreeDataCached(): Promise<unknown[]> {
   if (await file.exists()) {
     treeDataCache = await file.json()
     return treeDataCache!
+  }
+  return []
+}
+
+// 树元数据缓存（groups、orbit 常量、节点 orbit 数据、line 贴图）
+let treeMetaCache: unknown | null = null
+
+async function getTreeMetaCached(): Promise<unknown> {
+  if (treeMetaCache) return treeMetaCache
+  const path = join(REPO_ROOT, "web/tree-meta.json")
+  const file = Bun.file(path)
+  if (await file.exists()) {
+    const data = await file.json()
+    treeMetaCache = data
+    return data
+  }
+  return {}
+}
+
+// 技能列表缓存
+let skillsCache: unknown | null = null
+
+async function getSkillsCached(): Promise<unknown> {
+  if (skillsCache) return skillsCache
+  const path = join(REPO_ROOT, "web/skills-data.json")
+  const file = Bun.file(path)
+  if (await file.exists()) {
+    const data = await file.json() as unknown[]
+    if (Array.isArray(data) && data.length > 0) skillsCache = data
+    return data
   }
   return []
 }
@@ -80,8 +132,11 @@ pool.warmup().then(() => {
       "/api/calculate": { POST: handleCalculate },
       "/api/recalculate": { POST: handleRecalculate },
       "/api/tree-data": { GET: async () => jsonResponse(await getTreeDataCached(), 200) },
+      "/api/tree-meta": { GET: async () => jsonResponse(await getTreeMetaCached(), 200) },
       "/api/sprites": { GET: async () => jsonResponse(await getSpritesCached(), 200) },
+      "/api/skills": { GET: async () => jsonResponse(await getSkillsCached(), 200) },
       "/api/i18n": { GET: handleI18n },
+      "/tree-assets/:filename": { GET: (req) => handleTreeAsset(req as RouteRequest) },
     },
     fetch() {
       return new Response("Not Found", { status: 404 })
@@ -212,6 +267,30 @@ async function handleRecalculate(req: Request): Promise<Response> {
 async function handleI18n(): Promise<Response> {
   const map = await loadTranslations()
   return jsonResponse(Object.fromEntries(map), 200)
+}
+
+async function handleTreeAsset(req: RouteRequest): Promise<Response> {
+  const filename = req.params.filename
+  if (!filename || filename.includes("/") || filename.includes("..")) {
+    return new Response("Not Found", { status: 404 })
+  }
+  const filePath = join(TREE_ASSETS_DIR, filename)
+  const file = Bun.file(filePath)
+  if (!(await file.exists())) {
+    return new Response("Not Found", { status: 404 })
+  }
+  const ext = filename.split(".").pop()?.toLowerCase() ?? ""
+  const contentTypeMap: Record<string, string> = {
+    png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+    webp: "image/webp", gif: "image/gif",
+  }
+  const contentType = contentTypeMap[ext] ?? "application/octet-stream"
+  return new Response(file, {
+    headers: {
+      "Content-Type": contentType,
+      "Cache-Control": "public, max-age=86400",
+    },
+  })
 }
 
 function jsonResponse(data: unknown, status: number): Response {

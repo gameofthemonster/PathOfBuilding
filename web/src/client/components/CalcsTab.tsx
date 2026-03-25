@@ -85,6 +85,8 @@ const SECTIONS: Array<{
     stats: [
       { key: "Speed", label: "速率", fmt: "dec" },
       { key: "HitSpeed", label: "命中频率", fmt: "dec" },
+      { key: "AttackTime", label: "攻击时间(秒)", fmt: "dec" },
+      { key: "CastTime", label: "施法时间(秒)", fmt: "dec" },
     ],
   },
   {
@@ -105,6 +107,7 @@ const SECTIONS: Array<{
     en: "Accuracy",
     column: "left-a",
     stats: [
+      { key: "Accuracy", label: "命中值", fmt: "int", breakdownKey: "Accuracy" },
       { key: "HitChance", label: "命中率", fmt: "pct" },
     ],
   },
@@ -129,7 +132,8 @@ const SECTIONS: Array<{
       { key: "PoisonDuration", label: "中毒持续", fmt: "dec" },
       { key: "PoisonDotMulti", label: "中毒倍率", fmt: "pct_x100" },
       { key: "IgniteDPS", label: "点燃 DPS", fmt: "int" },
-      { key: "IgniteChancePerHit", label: "点燃几率", fmt: "pct" },
+      { key: "IgniteChance", label: "点燃几率", fmt: "pct" },
+      { key: "IgniteChancePerHit", label: "每击点燃几率", fmt: "pct" },
       { key: "IgniteDuration", label: "点燃持续", fmt: "dec" },
       { key: "IgniteDotMulti", label: "点燃倍率", fmt: "pct_x100" },
       { key: "DecayDPS", label: "衰朽 DPS", fmt: "int" },

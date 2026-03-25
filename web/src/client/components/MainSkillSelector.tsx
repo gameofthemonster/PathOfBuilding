@@ -12,9 +12,12 @@ interface Props {
   skills: SocketGroup[]
   mainSocketGroup: number
   onChange: (index: number) => void
+  skillParts?: string[]
+  skillPartIndex?: number
+  onSkillPartChange?: (partIndex: number) => void
 }
 
-export function MainSkillSelector({ skills, mainSocketGroup, onChange }: Props) {
+export function MainSkillSelector({ skills, mainSocketGroup, onChange, skillParts, skillPartIndex, onSkillPartChange }: Props) {
   const { t } = useI18n()
 
   const enabledGroups = skills
@@ -30,23 +33,50 @@ export function MainSkillSelector({ skills, mainSocketGroup, onChange }: Props) 
   }
 
   return (
-    <div className="px-3 py-2 border-b">
-      <div className="text-xs text-muted-foreground mb-1">主要技能 <span className="text-[10px] text-muted-foreground/50">Main Skill</span></div>
-      <Select
-        value={String(mainSocketGroup)}
-        onValueChange={(v) => onChange(parseInt(v, 10))}
-      >
-        <SelectTrigger className="h-7 text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {enabledGroups.map(({ group, index }) => (
-            <SelectItem key={index} value={String(index)} className="text-xs">
-              {getGroupLabel(group, index)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <div className="px-3 py-2 border-b flex flex-col gap-1.5">
+      <div>
+        <div className="text-xs text-muted-foreground mb-1">
+          技能组 <span className="text-[10px] text-muted-foreground/50">Socket Group</span>
+        </div>
+        <Select
+          value={String(mainSocketGroup)}
+          onValueChange={(v) => onChange(parseInt(v, 10))}
+        >
+          <SelectTrigger className="h-7 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {enabledGroups.map(({ group, index }) => (
+              <SelectItem key={index} value={String(index)} className="text-xs">
+                {getGroupLabel(group, index)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {skillParts && skillParts.length > 1 && onSkillPartChange && (
+        <div>
+          <div className="text-xs text-muted-foreground mb-1">
+            主动技能 <span className="text-[10px] text-muted-foreground/50">Active Skill</span>
+          </div>
+          <Select
+            value={String(skillPartIndex ?? 1)}
+            onValueChange={(v) => onSkillPartChange(parseInt(v, 10))}
+          >
+            <SelectTrigger className="h-7 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {skillParts.map((name, i) => (
+                <SelectItem key={i} value={String(i + 1)} className="text-xs">
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
     </div>
   )
 }
