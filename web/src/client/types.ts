@@ -6,9 +6,17 @@ export interface DisplayStat {
   category: string
 }
 
-// A single line in a stat breakdown (e.g. "200 (base)", "x 1.50 (increased/reduced)", "= 300")
+// A single line in a stat breakdown.
+// Text line:  { label: "200 (base)" }
+// Slot line:  { base, total, source, sourceName, ... }  — equipment/source contribution
 export interface BreakdownLine {
-  label: string  // human-readable text with color codes stripped
+  label?: string          // text line
+  base?: string           // slot: raw base value
+  inc?: string | null     // slot: "x 1.50" string or null
+  more?: string | null    // slot: "x 1.20" string or null
+  total?: string          // slot: final value after multipliers
+  source?: string         // slot: slot name (e.g. "Helm")
+  sourceName?: string     // slot: item/source display name
 }
 
 export interface CalcResult {
@@ -17,6 +25,11 @@ export interface CalcResult {
   displayStats: DisplayStat[]
   // stat key -> array of breakdown text lines; only present when there is meaningful breakdown data
   breakdown?: Record<string, BreakdownLine[]>
+  // Skill parts (calculation variants) for the current main active skill
+  skillParts?: string[]
+  skillPartIndex?: number
+  skillPartGemGroupIndex?: number
+  skillPartGemIndex?: number
 }
 
 export interface SocketGroup {
@@ -56,6 +69,7 @@ export interface BuildConfig {
     classId: number
     ascendClassId: number
     allocNodes: number[]
+    jewels?: Record<number, number>  // nodeId → itemId
   }
   items: {
     itemList: Item[]

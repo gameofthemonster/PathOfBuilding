@@ -48,10 +48,10 @@ if fileEmpty then
     local tree = build.spec.tree
     for id, node in pairs(tree.nodes) do
       if node.type ~= "class" and node.x and node.y then
-        -- Only keep string mods; parsed mod objects may contain non-serializable functions
+        -- node.sd 是节点的显示文本（stat descriptions），node.mods 是解析后对象（含函数，不可序列化）
         local rawMods = {}
-        if type(node.mods) == "table" then
-          for _, m in ipairs(node.mods) do
+        if type(node.sd) == "table" then
+          for _, m in ipairs(node.sd) do
             if type(m) == "string" then
               table.insert(rawMods, m)
             end
@@ -98,47 +98,149 @@ else
   io.stderr:write("[server_calc] tree-data.json already exists, skipping\n")
 end
 
+-- 导出树元数据（仅首次运行时）：groups 坐标、orbit 常量、节点 orbit 数据、line 贴图
+local treeMetaPath = "../web/tree-meta.json"
+local tmf = io.open(treeMetaPath, "r")
+local treeMetaEmpty = tmf == nil or tmf:read(1) == nil
+if tmf then tmf:close() end
+if treeMetaEmpty then
+  -- 复用已初始化的 build（由 tree-data.json 块初始化）
+  local ok2, err2 = true, nil
+  if not (build and build.spec and build.spec.tree) then
+    local minXml2 = [[<?xml version="1.0" encoding="UTF-8"?>
+<PathOfBuilding>
+  <Build level="1" className="Scion" ascendClassName="None" targetVersion="3_0"/>
+  <Skills/><Tree activeSpec="1"><Spec treeVersion="3_21" classId="0" ascendClassId="0" nodes=""/></Tree>
+  <Items/><Config/>
+</PathOfBuilding>]]
+    ok2, err2 = pcall(loadBuildFromXML, minXml2, "tree_meta_init")
+  end
+  if ok2 and build and build.spec and build.spec.tree then
+    local tree = build.spec.tree
+    -- Groups: id → {x, y, bg, ascendancyName, isAscendancyStart}
+    -- bg: 3=large(PSGroupBackground3), 2=medium, 1=small, 0=none
+    local groupsData = {}
+    for gid, g in pairs(tree.groups or {}) do
+      local bg = 0
+      if g.oo then
+        if g.oo[3] then bg = 3
+        elseif g.oo[2] then bg = 2
+        elseif g.oo[1] then bg = 1
+        end
+      end
+      groupsData[tostring(gid)] = {
+        x = g.x, y = g.y, bg = bg,
+        ascendancyName = g.ascendancyName or nil,
+        isAscendancyStart = g.isAscendancyStart or nil,
+      }
+    end
+    -- Orbit constants
+    local orbitRadii = tree.orbitRadii or {0, 82, 162, 335, 493}
+    local skillsPerOrbit = tree.skillsPerOrbit or {1, 6, 12, 12, 40}
+    -- Node orbit data: id → {g, o, oidx}
+    local nodeOrbit = {}
+    for id, node in pairs(tree.nodes or {}) do
+      local nid = tostring(node.id or id)
+      local g = node.g or node.group
+      local o = node.o or node.orbit
+      local oidx = node.oidx or node.orbitIndex
+      if g ~= nil and o ~= nil and oidx ~= nil then
+        nodeOrbit[nid] = {g = g, o = o, oidx = oidx}
+      end
+    end
+    -- Sprites from sprites.lua: line sprites + asset localUrl helper
+    local sprVer = latestTreeVersion or "3_28"
+    local ok_s, spritesLua2 = pcall(dofile, "TreeData/" .. sprVer .. "/sprites.lua")
+    local lineSprites = {}
+    if ok_s and spritesLua2 and spritesLua2.sprites then
+      local function localUrl(cdnUrl)
+        local base = cdnUrl:match("/([^/?]+)%?") or cdnUrl:match("/([^/?]+)$")
+        return "/tree-assets/" .. (base or "unknown.png")
+      end
+      local lineCat = spritesLua2.sprites.line
+      if lineCat and lineCat.coords then
+        local url = localUrl(lineCat.filename)
+        for spriteName, coord in pairs(lineCat.coords) do
+          lineSprites[spriteName] = {url=url, x=coord.x, y=coord.y, w=coord.w, h=coord.h}
+        end
+      end
+    end
+    local tmOut = io.open(treeMetaPath, "w")
+    if tmOut then
+      tmOut:write(json.encode({
+        groups = groupsData,
+        orbitRadii = orbitRadii,
+        skillsPerOrbit = skillsPerOrbit,
+        nodes = nodeOrbit,
+        lineSprites = lineSprites,
+      }))
+      tmOut:close()
+      io.stderr:write("[server_calc] tree-meta.json written\n")
+    end
+  else
+    io.stderr:write("[server_calc] tree-meta init failed: " .. tostring(err2) .. "\n")
+  end
+else
+  io.stderr:write("[server_calc] tree-meta.json already exists, skipping\n")
+end
+
 -- 导出 sprite 贴图数据（仅首次）
 local spritesJsonPath = "../web/sprites.json"
 local sf = io.open(spritesJsonPath, "r")
 local spritesEmpty = sf == nil or sf:read(1) == nil
 if sf then sf:close() end
 if spritesEmpty then
-  local ok_s, spritesLua = pcall(dofile, "TreeData/3_28/sprites.lua")
+  local sprVer2 = latestTreeVersion or "3_28"
+  local ok_s, spritesLua = pcall(dofile, "TreeData/" .. sprVer2 .. "/sprites.lua")
   if ok_s and spritesLua and spritesLua.sprites then
-    local iconInactive = {}
-    local iconActive   = {}
-    local frames       = {}
-    for _, catName in ipairs({"normalInactive", "notableInactive", "keystoneInactive", "masteryInactive"}) do
-      local cat = spritesLua.sprites[catName]
-      if cat and cat.coords then
-        local url = cat.filename
-        for iconPath, coord in pairs(cat.coords) do
-          local name = iconPath:match("([^/]+)%.%a+$") or iconPath
-          iconInactive[name] = {url=url, x=coord.x, y=coord.y, w=coord.w, h=coord.h}
+    -- Convert CDN URL to local /tree-assets/ URL
+    local function localUrl(cdnUrl)
+      local base = cdnUrl:match("/([^/?]+)%?") or cdnUrl:match("/([^/?]+)$")
+      return "/tree-assets/" .. (base or "unknown.png")
+    end
+    -- Extract icon coords (icon path → bare filename as key)
+    local function extractIconCat(catNames)
+      local result = {}
+      for _, catName in ipairs(catNames) do
+        local cat = spritesLua.sprites[catName]
+        if cat and cat.coords then
+          local url = localUrl(cat.filename)
+          for iconPath, coord in pairs(cat.coords) do
+            local name = iconPath:match("([^/]+)%.%a+$") or iconPath
+            result[name] = {url=url, x=coord.x, y=coord.y, w=coord.w, h=coord.h}
+          end
         end
       end
+      return result
     end
-    for _, catName in ipairs({"normalActive", "notableActive", "keystoneActive"}) do
+    -- Extract named coords (sprite name as key, unchanged)
+    local function extractNamedCat(catName)
+      local result = {}
       local cat = spritesLua.sprites[catName]
       if cat and cat.coords then
-        local url = cat.filename
-        for iconPath, coord in pairs(cat.coords) do
-          local name = iconPath:match("([^/]+)%.%a+$") or iconPath
-          iconActive[name] = {url=url, x=coord.x, y=coord.y, w=coord.w, h=coord.h}
+        local url = localUrl(cat.filename)
+        for name, coord in pairs(cat.coords) do
+          result[name] = {url=url, x=coord.x, y=coord.y, w=coord.w, h=coord.h}
         end
       end
-    end
-    local frameCat = spritesLua.sprites.frame
-    if frameCat and frameCat.coords then
-      local url = frameCat.filename
-      for frameName, coord in pairs(frameCat.coords) do
-        frames[frameName] = {url=url, x=coord.x, y=coord.y, w=coord.w, h=coord.h}
-      end
+      return result
     end
     local spritesOut = io.open(spritesJsonPath, "w")
     if spritesOut then
-      spritesOut:write(json.encode({inactive=iconInactive, active=iconActive, frames=frames}))
+      spritesOut:write(json.encode({
+        normalInactive   = extractIconCat({"normalInactive","masteryInactive"}),
+        notableInactive  = extractIconCat({"notableInactive"}),
+        keystoneInactive = extractIconCat({"keystoneInactive"}),
+        normalActive     = extractIconCat({"normalActive"}),
+        notableActive    = extractIconCat({"notableActive"}),
+        keystoneActive   = extractIconCat({"keystoneActive"}),
+        frames      = extractNamedCat("frame"),
+        groupBg     = extractNamedCat("groupBackground"),
+        ascendancy  = extractNamedCat("ascendancy"),
+        background  = extractNamedCat("background"),
+        jewel       = extractNamedCat("jewel"),
+        jewelRadius = extractNamedCat("jewelRadius"),
+      }))
       spritesOut:close()
       io.stderr:write("[server_calc] sprites.json written\n")
     end
@@ -147,6 +249,53 @@ if spritesEmpty then
   end
 else
   io.stderr:write("[server_calc] sprites.json already exists, skipping\n")
+end
+
+-- 导出技能列表数据（仅首次运行时）
+local skillsDataPath = "../web/skills-data.json"
+local sdf = io.open(skillsDataPath, "r")
+local skillsFileEmpty = sdf == nil or sdf:read(1) == nil
+if sdf then sdf:close() end
+if skillsFileEmpty then
+  -- 确保 build 已初始化（复用已有 build，或重新加载 minXml）
+  if not (build and build.data and build.data.skills) then
+    local minXmlS = [[<?xml version="1.0" encoding="UTF-8"?>
+<PathOfBuilding>
+  <Build level="1" className="Scion" ascendClassName="None" targetVersion="3_0"/>
+  <Skills/><Tree activeSpec="1"><Spec treeVersion="3_21" classId="0" ascendClassId="0" nodes=""/></Tree>
+  <Items/><Config/>
+</PathOfBuilding>]]
+    pcall(loadBuildFromXML, minXmlS, "skills_init")
+  end
+  local ok_s, err_s = pcall(function()
+    if not (build and build.data and build.data.skills) then
+      error("build.data.skills not available")
+    end
+    local skillsList = {}
+    for skillId, skillData in pairs(build.data.skills) do
+      if type(skillData) == "table" and skillData.name then
+        table.insert(skillsList, {
+          skillId = skillId,
+          name    = skillData.name,
+          color   = skillData.color or 0,
+        })
+      end
+    end
+    table.sort(skillsList, function(a, b) return a.name < b.name end)
+    local sdout = io.open(skillsDataPath, "w")
+    if sdout then
+      sdout:write(json.encode(skillsList))
+      sdout:close()
+      io.stderr:write("[server_calc] skills-data.json written: " .. #skillsList .. " skills\n")
+    else
+      error("cannot open skills-data.json for writing")
+    end
+  end)
+  if not ok_s then
+    io.stderr:write("[server_calc] skills export failed: " .. tostring(err_s) .. "\n")
+  end
+else
+  io.stderr:write("[server_calc] skills-data.json already exists, skipping\n")
 end
 
 -- stat key 白名单（只序列化数值字段，避免函数引用等无法 JSON 化的值）
@@ -187,8 +336,25 @@ local EXPORT_STATS = {
   -- Attributes
   "Str", "Dex", "Int", "Omni",
   "ReqStr", "ReqDex", "ReqInt", "ReqOmni",
-  -- Hit Damage Range (total)
+  -- Hit Damage Range (total and per type)
   "TotalMin", "TotalMax",
+  "PhysicalMin", "PhysicalMax",
+  "LightningMin", "LightningMax",
+  "ColdMin", "ColdMax",
+  "FireMin", "FireMax",
+  "ChaosMin", "ChaosMax",
+  -- Accuracy value
+  "Accuracy",
+  -- Attack/cast time
+  "AttackTime", "CastTime",
+  -- Gem level/quality
+  "GemLevel", "GemQuality",
+  -- Ignite detail
+  "MaxIgniteStacks",
+  -- Skill info extras
+  "SplitCount", "CurseLimit",
+  -- Mana reservation totals
+  "ManaReserved", "LifeReserved",
   -- Ailments
   "BleedChance", "BleedDuration", "BleedDotMulti",
   "PoisonChance", "PoisonDuration", "PoisonDotMulti",
@@ -387,16 +553,34 @@ while true do
       }
       for _, key in ipairs(TEXT_BREAKDOWN_KEYS) do
         local bd_entry = bd[key]
-        -- Only export if it's a plain text-line array (array of strings, no nested tables)
-        if type(bd_entry) == "table" and #bd_entry > 0 and type(bd_entry[1]) == "string" then
+        if type(bd_entry) == "table" then
           local lines = {}
-          for _, line in ipairs(bd_entry) do
-            -- Strip POB color escape codes: ^N (digit) and ^xRRGGBB (7-char hex)
-            local clean = line:gsub("%^%x%x%x%x%x%x%x", ""):gsub("%^%d", "")
-            -- Trim leading/trailing whitespace
-            clean = clean:match("^%s*(.-)%s*$")
-            if clean and #clean > 0 then
-              table.insert(lines, { label = clean })
+          -- Text lines (array of strings): base/multiplier/total chain
+          if #bd_entry > 0 and type(bd_entry[1]) == "string" then
+            for _, line in ipairs(bd_entry) do
+              -- Strip POB color escape codes: ^N (digit) and ^xRRGGBB (7-char hex)
+              local clean = line:gsub("%^%x%x%x%x%x%x%x", ""):gsub("%^%d", "")
+              clean = clean:match("^%s*(.-)%s*$")
+              if clean and #clean > 0 then
+                table.insert(lines, { label = clean })
+              end
+            end
+          end
+          -- Slot lines: per-equipment/source contribution
+          if type(bd_entry.slots) == "table" then
+            for _, slot in ipairs(bd_entry.slots) do
+              local item = slot.item
+              local sname = slot.sourceName
+                or (item and ((item.name ~= "" and item.name) or item.base or ""))
+                or ""
+              table.insert(lines, {
+                base = tostring(slot.base or ""),
+                inc = slot.inc,
+                more = slot.more,
+                total = slot.total or "",
+                source = slot.source or "",
+                sourceName = sname,
+              })
             end
           end
           if #lines > 0 then
@@ -406,7 +590,40 @@ while true do
       end
     end
 
-    return json.encode({ stats = stats, warnings = warnings, breakdown = breakdown })
+    -- Skill parts (calculation variants) for the current main active skill
+    local skillParts = {}
+    local skillPartIndex = 1
+    local skillPartGemGroupIndex = build.mainSocketGroup - 1  -- 0-indexed for frontend
+    local skillPartGemIndex = 0
+    local mainSocketGroup = build.skillsTab.socketGroupList[build.mainSocketGroup]
+    if mainSocketGroup and mainSocketGroup.displaySkillList then
+      local mainActiveSkill = mainSocketGroup.mainActiveSkill or 1
+      local activeSkill = mainSocketGroup.displaySkillList[mainActiveSkill]
+      if activeSkill and activeSkill.activeEffect then
+        local grantedEffect = activeSkill.activeEffect.grantedEffect
+        if grantedEffect and grantedEffect.parts and #grantedEffect.parts > 1 then
+          for _, part in ipairs(grantedEffect.parts) do
+            table.insert(skillParts, part.name)
+          end
+        end
+        local srcInstance = activeSkill.activeEffect.srcInstance
+        if srcInstance then
+          skillPartIndex = srcInstance.skillPart or 1
+          for i, gem in ipairs(mainSocketGroup.gemList or {}) do
+            if gem == srcInstance then
+              skillPartGemIndex = i - 1  -- 0-indexed for frontend
+              break
+            end
+          end
+        end
+      end
+    end
+
+    return json.encode({
+      stats = stats, warnings = warnings, breakdown = breakdown,
+      skillParts = skillParts, skillPartIndex = skillPartIndex,
+      skillPartGemGroupIndex = skillPartGemGroupIndex, skillPartGemIndex = skillPartGemIndex,
+    })
   end)
 
   if ok then

@@ -109,9 +109,9 @@ function StatRow({ label, value, fmt, breakdown, t }: StatRowProps) {
           {label} 构成
         </div>
         <div className="flex flex-col gap-0.5">
-          {breakdown.map((entry, i) => (
+          {breakdown.filter((e) => e.label !== undefined).map((entry, i) => (
             <div key={i} className="text-xs text-muted-foreground font-mono">
-              {t(entry.label)}
+              {t(entry.label!)}
             </div>
           ))}
         </div>

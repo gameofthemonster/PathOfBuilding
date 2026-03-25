@@ -10,8 +10,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import type { BreakdownLine, CalcResult } from "../types";
+import type { BreakdownLine, BuildConfig, CalcResult } from "../types";
 import { useI18n } from "../hooks/useI18n";
+import { MainSkillSelector } from "./MainSkillSelector";
 
 // ─── Stat definition types ────────────────────────────────────────────────────
 
@@ -31,13 +32,13 @@ const SECTIONS: Array<{
   label: string;
   en: string;
   stats: StatDef[];
-  column: "left" | "right";
+  column: "left-a" | "left-b" | "right";
 }> = [
   // ── LEFT COLUMN (offence) ─────────────────────────────────────────────────
   {
     label: "技能 DPS",
     en: "Skill DPS",
-    column: "left",
+    column: "left-a",
     stats: [
       { key: "CombinedDPS", label: "结合 DPS", fmt: "int" },
       { key: "FullDPS", label: "最终总和 DPS", fmt: "int" },
@@ -54,7 +55,7 @@ const SECTIONS: Array<{
   {
     label: "击中伤害范围",
     en: "Skill Hit Damage",
-    column: "left",
+    column: "left-a",
     stats: [
       { key: "TotalMin", key2: "TotalMax", label: "合计", fmt: "range" },
       { key: "PhysicalMin", key2: "PhysicalMax", label: "物理", fmt: "range" },
@@ -67,7 +68,7 @@ const SECTIONS: Array<{
   {
     label: "伤害类型 DPS",
     en: "DPS by Type",
-    column: "left",
+    column: "left-a",
     stats: [
       { key: "PhysicalDPS", label: "物理 DPS", fmt: "int" },
       { key: "LightningDPS", label: "闪电 DPS", fmt: "int" },
@@ -80,7 +81,7 @@ const SECTIONS: Array<{
   {
     label: "攻击/施法速率",
     en: "Attack/Cast Rate",
-    column: "left",
+    column: "left-a",
     stats: [
       { key: "Speed", label: "速率", fmt: "dec" },
       { key: "HitSpeed", label: "命中频率", fmt: "dec" },
@@ -89,7 +90,7 @@ const SECTIONS: Array<{
   {
     label: "暴击",
     en: "Crits",
-    column: "left",
+    column: "left-a",
     stats: [
       { key: "CritChance", label: "暴击率", fmt: "pct", breakdownKey: "CritChance" },
       { key: "PreEffectiveCritChance", label: "基础暴击率", fmt: "pct" },
@@ -102,7 +103,7 @@ const SECTIONS: Array<{
   {
     label: "命中",
     en: "Accuracy",
-    column: "left",
+    column: "left-a",
     stats: [
       { key: "HitChance", label: "命中率", fmt: "pct" },
     ],
@@ -110,7 +111,7 @@ const SECTIONS: Array<{
   {
     label: "持续伤害",
     en: "Skill Damage over Time",
-    column: "left",
+    column: "left-b",
     stats: [
       { key: "TotalDotInstance", label: "合计 DPS", fmt: "int" },
       { key: "PhysicalDot", label: "物理 DoT DPS", fmt: "int" },
@@ -138,7 +139,7 @@ const SECTIONS: Array<{
   {
     label: "偷取 & 击中获得",
     en: "Leech & Gain on Hit",
-    column: "left",
+    column: "left-b",
     stats: [
       { key: "MaxLifeLeechRate", label: "生命最大偷取", fmt: "int" },
       { key: "LifeLeechGainRate", label: "生命偷取速率", fmt: "int", breakdownKey: "LifeLeechGainRate" },
@@ -160,7 +161,7 @@ const SECTIONS: Array<{
   {
     label: "异常状态",
     en: "Ailments",
-    column: "left",
+    column: "left-b",
     stats: [
       { key: "ChillChance", label: "冰缓几率", fmt: "pct" },
       { key: "ChillDuration", label: "冰缓持续", fmt: "dec" },
@@ -181,7 +182,7 @@ const SECTIONS: Array<{
   {
     label: "技能类型特定属性",
     en: "Skill type-specific Stats",
-    column: "left",
+    column: "left-b",
     stats: [
       { key: "GemLevel", label: "宝石等级", fmt: "int" },
       { key: "GemQuality", label: "宝石品质", fmt: "int" },
@@ -198,7 +199,7 @@ const SECTIONS: Array<{
   {
     label: "其他效果",
     en: "Other Effects",
-    column: "left",
+    column: "left-b",
     stats: [
       { key: "AuraEffectMod", label: "光环效果", fmt: "pct_x100" },
       { key: "CurseEffectMod", label: "诅咒效果", fmt: "pct_x100" },
@@ -214,7 +215,7 @@ const SECTIONS: Array<{
   {
     label: "技能信息 / 范围",
     en: "Skill Info / Range",
-    column: "left",
+    column: "left-b",
     stats: [
       { key: "AreaOfEffectRadiusMetres", label: "AOE 半径(米)", fmt: "dec" },
       { key: "WeaponRangeMetre", label: "武器范围(米)", fmt: "dec" },
@@ -235,7 +236,7 @@ const SECTIONS: Array<{
   {
     label: "消耗",
     en: "Cost",
-    column: "left",
+    column: "left-a",
     stats: [
       { key: "ManaCost", label: "魔力消耗", fmt: "int", breakdownKey: "ManaCost" },
       { key: "LifeCost", label: "生命消耗", fmt: "int" },
@@ -251,7 +252,7 @@ const SECTIONS: Array<{
   {
     label: "属性",
     en: "Attributes",
-    column: "left",
+    column: "left-a",
     stats: [
       { key: "Str", label: "力量", fmt: "int", breakdownKey: "Str" },
       { key: "Dex", label: "敏捷", fmt: "int", breakdownKey: "Dex" },
@@ -647,6 +648,56 @@ function fmt(value: number, f: FmtType): string {
   }
 }
 
+// ─── Breakdown popover content ────────────────────────────────────────────────
+
+function BreakdownPopoverContent({
+  lines,
+  label,
+  t,
+}: {
+  lines: BreakdownLine[];
+  label: string;
+  t: (s: string) => string;
+}) {
+  const textLines = lines.filter((l) => l.label !== undefined);
+  const slotLines = lines.filter((l) => l.source !== undefined);
+  return (
+    <>
+      <div className="text-xs font-semibold mb-2">{label} 构成</div>
+      {textLines.length > 0 && (
+        <div className="flex flex-col gap-0.5">
+          {textLines.map((line, i) => (
+            <div key={i} className="text-xs text-muted-foreground font-mono leading-snug">
+              {t(line.label!)}
+            </div>
+          ))}
+        </div>
+      )}
+      {slotLines.length > 0 && (
+        <>
+          {textLines.length > 0 && <div className="my-1.5 border-t border-border/30" />}
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-muted-foreground/60 text-[10px]">
+                <th className="text-right pr-3 font-normal pb-0.5">值</th>
+                <th className="text-left font-normal pb-0.5">来源</th>
+              </tr>
+            </thead>
+            <tbody>
+              {slotLines.map((line, i) => (
+                <tr key={i}>
+                  <td className="text-right pr-3 font-mono">{line.total}</td>
+                  <td className="text-left text-muted-foreground">{line.sourceName || line.source}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </>
+  );
+}
+
 // ─── Shared props ─────────────────────────────────────────────────────────────
 
 interface StatRowProps {
@@ -717,17 +768,7 @@ function StatRow({ def, stats, breakdown, t }: StatRowProps) {
           sideOffset={8}
           className="w-72 p-3"
         >
-          <div className="text-xs font-semibold mb-2">{def.label} 构成</div>
-          <div className="flex flex-col gap-0.5">
-            {bkLines.map((line, i) => (
-              <div
-                key={i}
-                className="text-xs text-muted-foreground font-mono leading-snug"
-              >
-                {t(line.label)}
-              </div>
-            ))}
-          </div>
+          <BreakdownPopoverContent lines={bkLines} label={def.label} t={t} />
         </PopoverContent>
       </Popover>
     </div>
@@ -757,17 +798,7 @@ function StatCell({ def, stats, breakdown, t }: StatRowProps) {
         sideOffset={8}
         className="w-72 p-3"
       >
-        <div className="text-xs font-semibold mb-2">{def.label} 构成</div>
-        <div className="flex flex-col gap-0.5">
-          {bkLines.map((line, i) => (
-            <div
-              key={i}
-              className="text-xs text-muted-foreground font-mono leading-snug"
-            >
-              {t(line.label)}
-            </div>
-          ))}
-        </div>
+        <BreakdownPopoverContent lines={bkLines} label={def.label} t={t} />
       </PopoverContent>
     </Popover>
   ) : (
@@ -869,53 +900,54 @@ function Section({
 
 interface Props {
   result: CalcResult;
+  buildConfig?: BuildConfig | null;
+  onMainSkillChange?: (index: number) => void;
+  onSkillPartChange?: (partIndex: number) => void;
 }
 
-export function CalcsTab({ result }: Props) {
+export function CalcsTab({ result, buildConfig, onMainSkillChange, onSkillPartChange }: Props) {
   const { t } = useI18n();
-  const leftSections = SECTIONS.filter((s) => s.column === "left");
-  const rightSections = SECTIONS.filter((s) => s.column === "right");
+  const colA = SECTIONS.filter((s) => s.column === "left-a");
+  const colB = SECTIONS.filter((s) => s.column === "left-b");
+  const colRight = SECTIONS.filter((s) => s.column === "right");
+
+  const sectionProps = (s: (typeof SECTIONS)[number]) => ({
+    label: s.label,
+    en: s.en,
+    stats: s.stats,
+    data: result.stats ?? {},
+    breakdown: result.breakdown,
+    layout: "list" as const,
+    t,
+  });
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Left — offence, multi-column grid */}
-      <div className="flex-1 min-w-0 overflow-y-auto p-2">
-        <div
-          className="grid gap-2"
-          style={{
-            gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-          }}
-        >
-          {leftSections.map((s) => (
-            <Section
-              key={s.label}
-              label={s.label}
-              en={s.en}
-              stats={s.stats}
-              data={result.stats ?? {}}
-              breakdown={result.breakdown}
-              layout="grid"
-              t={t}
-            />
-          ))}
-        </div>
-      </div>
-      {/* Divider */}
-      <div className="w-px bg-border shrink-0" />
-      {/* Right — defence, single list */}
-      <div className="w-[200px] shrink-0 overflow-y-auto p-2 flex flex-col gap-1">
-        {rightSections.map((s) => (
-          <Section
-            key={s.label}
-            label={s.label}
-            en={s.en}
-            stats={s.stats}
-            data={result.stats ?? {}}
-            breakdown={result.breakdown}
-            layout="list"
-            t={t}
+    <div className="flex flex-col h-full overflow-hidden text-xs">
+      {buildConfig && buildConfig.skills.length > 0 && onMainSkillChange && (
+        <div className="shrink-0 border-b border-border/40">
+          <MainSkillSelector
+            skills={buildConfig.skills}
+            mainSocketGroup={buildConfig.mainSocketGroup}
+            onChange={onMainSkillChange}
+            skillParts={result.skillParts}
+            skillPartIndex={result.skillPartIndex}
+            onSkillPartChange={onSkillPartChange}
           />
-        ))}
+        </div>
+      )}
+      <div className="flex flex-1 overflow-hidden">
+      {/* Col A — 进攻核心 */}
+      <div className="flex-1 min-w-[180px] overflow-y-auto px-2 py-2 flex flex-col gap-0.5 border-r border-border/40">
+        {colA.map((s) => <Section key={s.label} {...sectionProps(s)} />)}
+      </div>
+      {/* Col B — DoT / 偷取 / 辅助 */}
+      <div className="flex-1 min-w-[180px] overflow-y-auto px-2 py-2 flex flex-col gap-0.5 border-r border-border/40">
+        {colB.map((s) => <Section key={s.label} {...sectionProps(s)} />)}
+      </div>
+      {/* Col C — 防御 */}
+      <div className="w-[220px] shrink-0 overflow-y-auto px-2 py-2 flex flex-col gap-0.5">
+        {colRight.map((s) => <Section key={s.label} {...sectionProps(s)} />)}
+      </div>
       </div>
     </div>
   );
