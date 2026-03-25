@@ -51,7 +51,7 @@ export function TabsArea({ buildConfig, result, onItemChange, onSkillChange, onC
 
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col min-h-0">
-      <TabsList className="w-full justify-start border-b rounded-none h-9 px-4 shrink-0">
+      <TabsList className="w-full justify-start border-b rounded-none h-9 px-4 shrink-0 bg-transparent">
         <TabsTrigger value="stats">统计 <span className="text-xs text-muted-foreground/60 font-normal ml-0.5">Calcs</span></TabsTrigger>
         <TabsTrigger value="items" disabled={!buildConfig}>装备 <span className="text-xs text-muted-foreground/60 font-normal ml-0.5">Items</span></TabsTrigger>
         <TabsTrigger value="skills" disabled={!buildConfig}>技能 <span className="text-xs text-muted-foreground/60 font-normal ml-0.5">Skills</span></TabsTrigger>

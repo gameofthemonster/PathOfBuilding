@@ -122,7 +122,7 @@ export function PassiveTreeTab({ buildConfig, onAllocChange }: Props) {
     const { scale: sc, offsetX: ox, offsetY: oy } = viewRef.current
 
     ctx.clearRect(0, 0, logW, logH)
-    ctx.fillStyle = "#0e0e17"
+    ctx.fillStyle = "#000000"
     ctx.fillRect(0, 0, logW, logH)
 
     const nodeMap = new Map<number, { x: number; y: number; ascendancyName?: string }>()
@@ -350,7 +350,7 @@ export function PassiveTreeTab({ buildConfig, onAllocChange }: Props) {
       <canvas
         ref={canvasRef}
         className="w-full h-full cursor-grab active:cursor-grabbing"
-        style={{ background: "#0e0e17" }}
+        style={{ background: "#000000" }}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
