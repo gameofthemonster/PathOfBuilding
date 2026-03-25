@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import type { BuildConfig, Item } from "../types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useI18n } from "../hooks/useI18n";
 
 // ─── Slot definitions ─────────────────────────────────────────────────────────
 
@@ -99,6 +100,7 @@ interface SlotGroupProps {
   getItem: (slotName: string) => Item | null;
   selectedSlot: string;
   onSelect: (slotName: string) => void;
+  t: (s: string) => string;
 }
 
 function SlotGroup({
@@ -108,6 +110,7 @@ function SlotGroup({
   getItem,
   selectedSlot,
   onSelect,
+  t,
 }: SlotGroupProps) {
   return (
     <div>
@@ -137,7 +140,7 @@ function SlotGroup({
             <span
               className={`truncate text-xs ${item ? (RARITY_COLORS[item.rarity] ?? "") : "text-muted-foreground/40 italic"}`}
             >
-              {item ? item.name || item.base : "空"}
+              {item ? t(item.name || item.base) : "空"}
             </span>
           </div>
         );
@@ -152,9 +155,10 @@ interface ItemDetailProps {
   slotLabel: string;
   item: Item | null;
   onReplace: (rawText: string) => void;
+  t: (s: string) => string;
 }
 
-function ItemDetail({ slotLabel, item, onReplace }: ItemDetailProps) {
+function ItemDetail({ slotLabel, item, onReplace, t }: ItemDetailProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
 
@@ -179,10 +183,10 @@ function ItemDetail({ slotLabel, item, onReplace }: ItemDetailProps) {
           <div
             className={`text-base font-semibold leading-tight ${RARITY_COLORS[item.rarity] ?? ""}`}
           >
-            {item.name || item.base}
+            {t(item.name || item.base)}
           </div>
           {item.name && item.base && (
-            <div className="text-sm text-muted-foreground">{item.base}</div>
+            <div className="text-sm text-muted-foreground">{t(item.base)}</div>
           )}
         </div>
       ) : (
@@ -201,7 +205,7 @@ function ItemDetail({ slotLabel, item, onReplace }: ItemDetailProps) {
                 key={`imp-${i}`}
                 className="text-xs text-yellow-300/80 leading-snug"
               >
-                {mod}
+                {t(mod)}
               </div>
             ))}
             {mods.implicits.length > 0 && mods.explicits.length > 0 && (
@@ -212,7 +216,7 @@ function ItemDetail({ slotLabel, item, onReplace }: ItemDetailProps) {
                 key={`exp-${i}`}
                 className={`text-xs ${modColor} leading-snug`}
               >
-                {mod}
+                {t(mod)}
               </div>
             ))}
           </div>
@@ -267,6 +271,7 @@ interface Props {
 }
 
 export function ItemsTab({ buildConfig, onItemChange }: Props) {
+  const { t } = useI18n();
   const [selectedSlot, setSelectedSlot] = useState(SLOT_ORDER[0]);
   const [leftWidth, setLeftWidth] = useState(420);
   const dragging = useRef(false);
@@ -322,6 +327,7 @@ export function ItemsTab({ buildConfig, onItemChange }: Props) {
           getItem={getItem}
           selectedSlot={selectedSlot}
           onSelect={setSelectedSlot}
+          t={t}
         />
         <SlotGroup
           label="药剂"
@@ -330,6 +336,7 @@ export function ItemsTab({ buildConfig, onItemChange }: Props) {
           getItem={getItem}
           selectedSlot={selectedSlot}
           onSelect={setSelectedSlot}
+          t={t}
         />
       </div>
 
@@ -345,6 +352,7 @@ export function ItemsTab({ buildConfig, onItemChange }: Props) {
           slotLabel={SLOT_LABELS[selectedSlot] ?? selectedSlot}
           item={selectedItem}
           onReplace={(text) => onItemChange(selectedSlot, text)}
+          t={t}
         />
       </div>
     </div>
