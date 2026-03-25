@@ -17,6 +17,7 @@ import type { BreakdownLine, CalcResult } from "../types";
 const STAT_GROUPS = [
   {
     label: "伤害",
+    en: "Offence",
     stats: [
       { key: "CombinedDPS", label: "结合 DPS", fmt: "int" },
       { key: "FullDPS", label: "最终总和DPS", fmt: "int" },
@@ -31,6 +32,7 @@ const STAT_GROUPS = [
   },
   {
     label: "防御",
+    en: "Defence",
     stats: [
       { key: "Life", label: "生命", fmt: "int" },
       { key: "EnergyShield", label: "能量护盾", fmt: "int" },
@@ -50,7 +52,8 @@ const STAT_GROUPS = [
     ],
   },
   {
-    label: "费用",
+    label: "消耗",
+    en: "Cost",
     stats: [
       { key: "ManaCost", label: "魔力消耗", fmt: "int" },
       { key: "LifeCost", label: "生命消耗", fmt: "int" },
@@ -117,12 +120,13 @@ function StatRow({ label, value, fmt, breakdown }: StatRowProps) {
 
 interface StatGroupProps {
   label: string;
+  en: string;
   stats: Array<{ key: string; label: string; fmt: string }>;
   data: Record<string, number>;
   breakdown?: Record<string, BreakdownLine[]>;
 }
 
-function StatGroup({ label, stats, data, breakdown }: StatGroupProps) {
+function StatGroup({ label, en, stats, data, breakdown }: StatGroupProps) {
   const [open, setOpen] = useState(true);
 
   // 只显示有数据的行
@@ -140,6 +144,7 @@ function StatGroup({ label, stats, data, breakdown }: StatGroupProps) {
           <CaretRight className="h-3 w-3" />
         )}
         {label}
+        <span className="text-[10px] text-muted-foreground/50 font-normal normal-case tracking-normal ml-0.5">{en}</span>
       </CollapsibleTrigger>
       <CollapsibleContent>
         {visibleStats.map(({ key, label, fmt }) => (
@@ -164,12 +169,13 @@ export function StatsPanel({ result }: Props) {
   return (
     <div className="flex flex-col gap-2 p-3">
       <div className="text-xs font-semibold uppercase tracking-wide mb-1">
-        统计数据
+        统计数据 <span className="text-[10px] text-muted-foreground/50 font-normal normal-case tracking-normal">Stats</span>
       </div>
       {STAT_GROUPS.map((group) => (
         <StatGroup
           key={group.label}
           label={group.label}
+          en={group.en}
           stats={group.stats}
           data={result.stats ?? {}}
           breakdown={result.breakdown}

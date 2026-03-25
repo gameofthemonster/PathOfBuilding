@@ -31,7 +31,7 @@ export function MainSkillSelector({ skills, mainSocketGroup, onChange }: Props) 
 
   return (
     <div className="px-3 py-2 border-b">
-      <div className="text-xs text-muted-foreground mb-1">主要技能</div>
+      <div className="text-xs text-muted-foreground mb-1">主要技能 <span className="text-[10px] text-muted-foreground/50">Main Skill</span></div>
       <Select
         value={String(mainSocketGroup)}
         onValueChange={(v) => onChange(parseInt(v, 10))}

@@ -23,13 +23,49 @@ export async function loadTranslations(): Promise<Map<string, string>> {
     const content = await readFile(path.join(I18N_DIR, file), "utf-8")
     const lines = content.split("\n")
     for (const line of lines) {
-      const commaIdx = line.indexOf(",")
-      if (commaIdx === -1) continue
-      // 去除两端的双引号（PoeCharm2 CSV 部分 key 带引号）
-      let en = line.slice(0, commaIdx).trim()
-      let zh = line.slice(commaIdx + 1).trim()
-      if (en.startsWith('"') && en.endsWith('"')) en = en.slice(1, -1)
-      if (zh.startsWith('"') && zh.endsWith('"')) zh = zh.slice(1, -1)
+      // Proper two-field quoted-CSV parser.
+      // A quoted field starts with " and ends at the next " followed by , or EOL.
+      // "" inside a quoted field represents a literal ".
+      // An unquoted field ends at the first ,.
+      const parseField = (s: string, pos: number): [string, number] => {
+        if (s[pos] === '"') {
+          // Quoted field
+          let field = ""
+          let i = pos + 1
+          while (i < s.length) {
+            if (s[i] === '"') {
+              if (s[i + 1] === '"') {
+                // Escaped double-quote
+                field += '"'
+                i += 2
+              } else {
+                // End of quoted field; skip closing quote
+                i += 1
+                break
+              }
+            } else {
+              field += s[i]
+              i += 1
+            }
+          }
+          // Skip the comma separator if present
+          if (s[i] === ",") i += 1
+          return [field, i]
+        } else {
+          // Unquoted field
+          const commaIdx = s.indexOf(",", pos)
+          if (commaIdx === -1) return [s.slice(pos), s.length]
+          return [s.slice(pos, commaIdx), commaIdx + 1]
+        }
+      }
+
+      const trimmed = line.trim()
+      if (!trimmed) continue
+
+      const [en, afterKey] = parseField(trimmed, 0)
+      if (afterKey >= trimmed.length) continue // no second field
+      const [zh] = parseField(trimmed, afterKey)
+
       if (en && zh) translationMap.set(en, zh)
     }
   }

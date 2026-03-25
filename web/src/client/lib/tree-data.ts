@@ -6,6 +6,7 @@ export interface TreeNode {
   y: number
   mods: string[]
   ascendancyName?: string
+  out: number[]
 }
 
 let cachedNodes: TreeNode[] | null = null

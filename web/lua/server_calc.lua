@@ -48,6 +48,16 @@ if fileEmpty then
             end
           end
         end
+        -- Collect connected node IDs from node.out (values may be strings or numbers)
+        local outIds = {}
+        if type(node.out) == "table" then
+          for _, oid in pairs(node.out) do
+            local n = tonumber(oid)
+            if n then
+              table.insert(outIds, n)
+            end
+          end
+        end
         table.insert(nodes, {
           id = node.id or id,
           name = node.name or "",
@@ -56,6 +66,7 @@ if fileEmpty then
           y = node.y,
           mods = rawMods,
           ascendancyName = node.ascendancyName,
+          out = outIds,
         })
       end
     end
@@ -79,6 +90,8 @@ local EXPORT_STATS = {
   "AverageHit", "AverageDamage", "AverageBurstDamage", "CombinedAvg",
   "SkillDPS", "BleedDPS", "IgniteDPS", "PoisonDPS", "DecayDPS",
   "ImpaleDPS", "WithBleedDPS", "WithIgniteDPS", "WithPoisonDPS", "WithImpaleDPS",
+  "PhysicalDPS", "LightningDPS", "ColdDPS", "FireDPS", "ChaosDPS",
+  "ElementalDPS", "TotalNonCritDPS", "TotalCritDPS",
   "TotalDotDPS", "WithDotDPS", "WithIgniteAverageDamage",
   "CritChance", "PreEffectiveCritChance", "CritMultiplier",
   "Speed", "HitChance", "HitSpeed",
@@ -108,6 +121,36 @@ local EXPORT_STATS = {
   -- Attributes
   "Str", "Dex", "Int", "Omni",
   "ReqStr", "ReqDex", "ReqInt", "ReqOmni",
+  -- Hit Damage Range (total)
+  "TotalMin", "TotalMax",
+  -- Ailments
+  "BleedChance", "BleedDuration", "BleedDotMulti",
+  "PoisonChance", "PoisonDuration", "PoisonDotMulti",
+  "IgniteChance", "IgniteDuration", "IgniteDotMulti", "IgniteChancePerHit",
+  "ChillChance", "FreezeChance", "ShockChance",
+  "ShockDuration", "ChillDuration", "FreezeDurationMod",
+  -- Skill info
+  "AreaOfEffectRadiusMetres", "WeaponRangeMetre",
+  "StrikeTargets", "ProjectileSpeedMod",
+  -- Warcry
+  "WarcryCastTime", "WarcryEffectMod",
+  -- Misc offence
+  "DoubleDamageChance",
+  -- Charges
+  "EnduranceCharges", "EnduranceChargesMax",
+  "FrenzyCharges", "FrenzyChargesMax",
+  "PowerCharges", "PowerChargesMax",
+  -- Flask
+  "FlaskChargeGen", "FlaskEffect",
+  -- Regen
+  "LifeRegen", "ManaRegen",
+  -- Recharge
+  "EnergyShieldRechargeDelay",
+  -- Block
+  "BlockChance", "SpellBlockChance", "SpellSuppressionChance",
+  "EffectiveAttackDodgeChance", "EffectiveSpellDodgeChance",
+  -- Fortify
+  "MaximumFortification",
   -- Misc
   "ActiveMinionLimit", "Devotion", "LootQuantity", "LootRarity",
   "Cooldown", "Duration", "DurationSecondary",
@@ -134,7 +177,10 @@ while true do
       return json.encode({ error = tostring(loadErr) })
     end
 
-    local output = build.calcsTab.mainOutput
+    local output = build.calcsTab and build.calcsTab.mainOutput
+    if not output then
+      return json.encode({ error = "mainOutput is nil (build calc did not run)" })
+    end
     local stats = {}
     for _, key in ipairs(EXPORT_STATS) do
       local v = output[key]
@@ -157,6 +203,25 @@ while true do
     local ok_calcs, calcsEnv = pcall(function()
       return build.calcsTab.calcs.buildOutput(build, "CALCS")
     end)
+    -- Extract per-damage-type hit ranges from CALCS mode (only set when env.mode == "CALCS")
+    if ok_calcs and calcsEnv and calcsEnv.player and calcsEnv.player.output then
+      local CALCS_STAT_KEYS = {
+        "PhysicalMin", "PhysicalMax",
+        "LightningMin", "LightningMax",
+        "ColdMin", "ColdMax",
+        "FireMin", "FireMax",
+        "ChaosMin", "ChaosMax",
+        "PhysicalDPS", "LightningDPS", "ColdDPS", "FireDPS", "ChaosDPS",
+        "ElementalDPS",
+      }
+      for _, key in ipairs(CALCS_STAT_KEYS) do
+        local v = calcsEnv.player.output[key]
+        if type(v) == "number" then
+          stats[key] = v
+        end
+      end
+    end
+
     if ok_calcs and calcsEnv and calcsEnv.player and calcsEnv.player.breakdown then
       local bd = calcsEnv.player.breakdown
       -- Keys for which we export simple text-line breakdowns (matching EXPORT_STATS keys used in UI)

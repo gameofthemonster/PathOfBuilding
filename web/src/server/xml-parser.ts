@@ -14,7 +14,7 @@ export function parseBuildXml(xml: string): BuildConfig {
   const specAttrs = specMatch ? parseAttributes(specMatch[1]) : {}
 
   const allocNodes = specAttrs["nodes"]
-    ? specAttrs["nodes"].trim().split(/\s+/).filter(Boolean).map(Number)
+    ? specAttrs["nodes"].trim().split(/[\s,]+/).filter(Boolean).map(Number)
     : []
 
   // 提取 Skills

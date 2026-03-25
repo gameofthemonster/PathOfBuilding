@@ -11,7 +11,7 @@ export function WarningsPanel({ result }: Props) {
   return (
     <div className="p-3 border-t">
       <div className="text-xs font-semibold uppercase tracking-wide text-yellow-500 mb-2">
-        警告
+        警告 <span className="text-[10px] text-yellow-500/50 font-normal normal-case tracking-normal">Warnings</span>
       </div>
       <ul className="flex flex-col gap-1">
         {result.warnings.map((msg, i) => (

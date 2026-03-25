@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { SpinnerGap } from "@phosphor-icons/react"
 
@@ -24,19 +24,25 @@ export function BuildInput({ onCalculate, loading }: Props) {
     onCalculate(trimmed)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-      handleSubmit()
-    }
-  }
-
-  const loadFixture = async (name: string) => {
+  const loadFixture = useCallback(async (name: string) => {
     const res = await fetch(`/api/fixtures/${encodeURIComponent(name)}`)
     if (!res.ok) return
     const code = await res.text()
     setValue(code)
     onCalculate(code)
-  }
+    const params = new URLSearchParams(window.location.search)
+    params.set("fixture", name)
+    history.pushState({}, "", "?" + params.toString())
+  }, [onCalculate])
+
+  // 挂载时自动从 URL 加载 fixture（直接 fetch，不依赖 fixtures 列表）
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const fixtureName = params.get("fixture")
+    if (fixtureName) {
+      loadFixture(fixtureName)
+    }
+  }, [loadFixture])
 
   return (
     <div className="flex flex-col gap-2 p-4">
@@ -55,13 +61,14 @@ export function BuildInput({ onCalculate, loading }: Props) {
           ))}
         </div>
       )}
-      <div className="flex items-start gap-2">
-        <textarea
-          className="flex-1 min-h-[60px] max-h-[120px] resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          className="flex-1 h-9 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
           placeholder="粘贴 POB Build String..."
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onKeyDown={(e) => { if (e.key === "Enter") handleSubmit() }}
           disabled={loading}
         />
         <Button

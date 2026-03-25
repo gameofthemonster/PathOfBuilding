@@ -109,3 +109,22 @@ bun --hot ./index.ts
 ```
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+
+## UI 双语标签约定
+
+所有面板标题和 Tab 标签都采用「中文 + 英文」双语格式，英文部分使用 `text-muted-foreground/50` + `text-xs`（或更小），英文名称与 POB 原版保持一致：
+
+- Tab 标签：统计 `Calcs`、装备 `Items`、技能 `Skills`、天赋树 `Tree`、配置 `Config`
+- Calcs 分区：Skill DPS、Hit Damage Range、Speed/Hit/Crit、Damage over Time、Cost、Attributes、Life、Mana、Energy Shield、Ward、Resistances、Armour/Evasion、Block/Suppress、Summary
+- Stats 分区：Offence（伤害）、Defence（防御）、Cost（消耗）
+- Items 分区：Gear（装备）、Flasks（药剂）
+- 其他：Main Skill（主要技能）、Warnings（警告）
+
+实现模式：
+```tsx
+// 段落标题（section header）
+{label} <span className="text-xs text-muted-foreground/50 font-normal normal-case tracking-normal">{en}</span>
+
+// Tab 按钮
+统计 <span className="text-xs text-muted-foreground/60 font-normal ml-0.5">Calcs</span>
+```
