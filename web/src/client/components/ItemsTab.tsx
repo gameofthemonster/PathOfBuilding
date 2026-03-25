@@ -43,6 +43,69 @@ const SLOT_LABELS: Record<string, string> = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// 只有这些 tag 会出现在 PoB 词缀行开头（shaper/elder/crusader 等旧势力不出现在词缀行）
+const MOD_TYPE_FLAGS = new Set([
+  "crafted",
+  "custom",
+  "exarch",
+  "eater",
+  "fractured",
+  "scourge",
+  "crucible",
+  "mutated",
+  "synthesis",
+  "enchant",
+  "primalcraft",
+]);
+
+interface ModTypeInfo {
+  label: string;
+  textColor: string;
+  labelColor: string;
+}
+const MOD_TYPE_DISPLAY: Record<string, ModTypeInfo> = {
+  crafted: {
+    label: "锁定",
+    textColor: "text-yellow-300/90",
+    labelColor: "text-yellow-400/70",
+  },
+  exarch: {
+    label: "炙热",
+    textColor: "text-orange-300/90",
+    labelColor: "text-orange-400/70",
+  },
+  eater: {
+    label: "吞噬",
+    textColor: "text-teal-300/90",
+    labelColor: "text-teal-400/70",
+  },
+  fractured: {
+    label: "裂变",
+    textColor: "text-yellow-200/90",
+    labelColor: "text-yellow-300/70",
+  },
+  scourge: {
+    label: "伤疤",
+    textColor: "text-red-300/90",
+    labelColor: "text-red-400/70",
+  },
+  crucible: {
+    label: "熔炉",
+    textColor: "text-amber-300/90",
+    labelColor: "text-amber-400/70",
+  },
+  synthesis: {
+    label: "合成",
+    textColor: "text-fuchsia-300/90",
+    labelColor: "text-fuchsia-400/70",
+  },
+  enchant: {
+    label: "附魔",
+    textColor: "text-cyan-300/90",
+    labelColor: "text-purple-400/70",
+  },
+};
+
 const RARITY_COLORS: Record<string, string> = {
   UNIQUE: "text-orange-400",
   RARE: "text-yellow-400",
@@ -66,29 +129,87 @@ function decodeEntities(s: string): string {
     .replace(/&quot;/g, '"');
 }
 
+interface ModEntry {
+  text: string;
+  tags: string[]; // MOD_TYPE_FLAGS 里的类型 tag
+  posLabel?: "前缀" | "后缀"; // 由 Prefix:/Suffix: header 计数推断（仅 PoB 工坊制作的装备才有）
+}
+
 function parseItemMods(rawText: string): {
-  implicits: string[];
-  explicits: string[];
+  implicits: ModEntry[];
+  explicits: ModEntry[];
 } {
   const lines = rawText.split("\n").map((l) => l.trim());
   let implicitCount = 0;
   let pastHeader = false;
-  const mods: string[] = [];
+  let prefixCount = 0;
+  let suffixCount = 0;
+  const mods: ModEntry[] = [];
+  const pendingTags: string[] = []; // 从单独标记行带入下一行
+
   for (const line of lines) {
     if (!line || line.startsWith("<")) continue;
-    const m = line.match(/^Implicits:\s*(\d+)$/);
-    if (m) {
-      implicitCount = parseInt(m[1]);
+
+    // Header 行：计数 Prefix/Suffix（仅工坊制作装备有，游戏导入装备没有）
+    // 注意：Prefix:/Suffix: 的值是词缀 ID，不是词缀文本，只取计数
+    if (/^Prefix:/.test(line)) {
+      prefixCount++;
+      continue;
+    }
+    if (/^Suffix:/.test(line)) {
+      suffixCount++;
+      continue;
+    }
+
+    const implicitMatch = line.match(/^Implicits:\s*(\d+)$/);
+    if (implicitMatch) {
+      implicitCount = parseInt(implicitMatch[1]);
       pastHeader = true;
       continue;
     }
     if (!pastHeader) continue;
-    mods.push(decodeEntities(line));
+
+    // 中文客户端格式：单独一行 "锁定" 表示下一条是锁定词缀
+    if (line === "锁定") {
+      pendingTags.push("crafted");
+      continue;
+    }
+
+    // 提取行首 {tag} 标记（忽略带冒号的值标记如 {range:0.5}、{tags:life}、{variant:1}）
+    const tags: string[] = [...pendingTags];
+    pendingTags.length = 0;
+    let rest = line;
+    let tagMatch: RegExpExecArray | null;
+    while ((tagMatch = /^\{([^}]+)\}/.exec(rest)) !== null) {
+      const key = tagMatch[1].split(":")[0];
+      if (MOD_TYPE_FLAGS.has(key)) tags.push(key);
+      rest = rest.slice(tagMatch[0].length);
+    }
+
+    if (rest.trim()) {
+      mods.push({ text: decodeEntities(rest.trim()), tags });
+    } else if (tags.length > 0) {
+      // 全是 tag 没有文本（如单独的 {crafted}），携带给下一行
+      pendingTags.push(...tags);
+    }
   }
-  return {
-    implicits: mods.slice(0, implicitCount),
-    explicits: mods.slice(implicitCount),
-  };
+
+  const implicits = mods.slice(0, implicitCount);
+  const explicits = mods.slice(implicitCount);
+
+  // 按 Prefix:/Suffix: header 数量给显式词缀打位置标签
+  // 使用原始位置索引（不跳过特殊 tag 词缀），因为 Prefix:/Suffix: 计数包含所有词缀（包括锁定词缀）
+  if (prefixCount > 0 || suffixCount > 0) {
+    for (let i = 0; i < explicits.length; i++) {
+      if (i < prefixCount) {
+        explicits[i].posLabel = "前缀";
+      } else if (i < prefixCount + suffixCount) {
+        explicits[i].posLabel = "后缀";
+      }
+    }
+  }
+
+  return { implicits, explicits };
 }
 
 // ─── SlotGroup (left panel group) ────────────────────────────────────────────
@@ -127,21 +248,34 @@ function SlotGroup({
           <div
             key={slotName}
             onClick={() => onSelect(slotName)}
-            className={`flex items-baseline gap-2 px-3 py-1.5 cursor-pointer border-l-2 transition-colors
+            className={`flex items-start gap-2 px-3 py-1.5 cursor-pointer border-l-2 transition-colors
               ${
                 isSelected
                   ? "border-l-primary bg-muted/60"
                   : "border-l-transparent hover:bg-muted/30"
               }`}
           >
-            <span className="text-xs text-muted-foreground shrink-0 w-20">
+            <span className="text-xs text-muted-foreground shrink-0 w-20 pt-px">
               {SLOT_LABELS[slotName]}
             </span>
-            <span
-              className={`truncate text-xs ${item ? (RARITY_COLORS[item.rarity] ?? "") : "text-muted-foreground/40 italic"}`}
-            >
-              {item ? t(item.name || item.base) : "空"}
-            </span>
+            {item ? (
+              <div className="min-w-0">
+                <div
+                  className={`truncate text-xs ${RARITY_COLORS[item.rarity] ?? ""}`}
+                >
+                  {t(item.name || item.base)}
+                </div>
+                {item.name && item.base && (
+                  <div className="truncate text-[10px] text-muted-foreground/60">
+                    {t(item.base)}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground/40 italic">
+                空
+              </span>
+            )}
           </div>
         );
       })}
@@ -200,25 +334,71 @@ function ItemDetail({ slotLabel, item, onReplace, t }: ItemDetailProps) {
         mods &&
         (mods.implicits.length > 0 || mods.explicits.length > 0) && (
           <div className="border border-border/40 rounded p-2 flex flex-col gap-0.5">
-            {mods.implicits.map((mod, i) => (
-              <div
-                key={`imp-${i}`}
-                className="text-xs text-yellow-300/80 leading-snug"
-              >
-                {t(mod)}
-              </div>
-            ))}
+            {mods.implicits.map((mod, i) => {
+              // 隐性词缀也可能有类型标签：{crafted}=附魔, {exarch}=炙热, {eater}=吞噬, {synthesis}=合成 等
+              const specialTag = mod.tags.find((tag) => MOD_TYPE_DISPLAY[tag]);
+              const typeInfo = specialTag
+                ? MOD_TYPE_DISPLAY[specialTag]
+                : undefined;
+              const textColor = typeInfo?.textColor ?? "text-yellow-300/80";
+              return (
+                <div
+                  key={`imp-${i}`}
+                  className="flex items-baseline gap-1.5 leading-snug"
+                >
+                  {typeInfo ? (
+                    <span
+                      className={`text-[9px] font-medium shrink-0 w-7 text-right ${typeInfo.labelColor}`}
+                    >
+                      {typeInfo.label}
+                    </span>
+                  ) : (
+                    <span className="shrink-0 w-7" />
+                  )}
+                  <span className={`text-xs ${textColor}`}>{t(mod.text)}</span>
+                </div>
+              );
+            })}
             {mods.implicits.length > 0 && mods.explicits.length > 0 && (
               <div className="my-1 border-t border-border/30" />
             )}
-            {mods.explicits.map((mod, i) => (
-              <div
-                key={`exp-${i}`}
-                className={`text-xs ${modColor} leading-snug`}
-              >
-                {t(mod)}
-              </div>
-            ))}
+            {mods.explicits.map((mod, i) => {
+              // 优先取 special tag 信息，否则用 posLabel（前缀/后缀）
+              const specialTag = mod.tags.find((t) => MOD_TYPE_DISPLAY[t]);
+              const typeInfo = specialTag
+                ? MOD_TYPE_DISPLAY[specialTag]
+                : undefined;
+              const label = typeInfo?.label ?? mod.posLabel ?? null;
+              const labelColor =
+                typeInfo?.labelColor ??
+                (mod.posLabel === "前缀"
+                  ? "text-blue-400/60"
+                  : "text-pink-400/60");
+              const textColor =
+                typeInfo?.textColor ??
+                (mod.posLabel === "前缀"
+                  ? "text-blue-300/90"
+                  : mod.posLabel === "后缀"
+                    ? "text-pink-300/90"
+                    : "text-muted-foreground/70");
+              return (
+                <div
+                  key={`exp-${i}`}
+                  className="flex items-baseline gap-1.5 leading-snug"
+                >
+                  {label ? (
+                    <span
+                      className={`text-[9px] font-medium shrink-0 w-7 text-right ${labelColor}`}
+                    >
+                      {label}
+                    </span>
+                  ) : (
+                    <span className="shrink-0 w-7" />
+                  )}
+                  <span className={`text-xs ${textColor}`}>{t(mod.text)}</span>
+                </div>
+              );
+            })}
           </div>
         )}
 
