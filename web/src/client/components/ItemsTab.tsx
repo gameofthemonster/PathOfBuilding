@@ -399,25 +399,16 @@ function ItemDetail({ slotLabel, item, onReplace, t }: ItemDetailProps) {
             {mods.implicits.map((mod, i) => {
               // 隐性词缀也可能有类型标签：{crafted}=附魔, {exarch}=炙热, {eater}=吞噬, {synthesis}=合成 等
               const specialTag = mod.tags.find((tag) => MOD_TYPE_DISPLAY[tag]);
-              const typeInfo = specialTag
-                ? MOD_TYPE_DISPLAY[specialTag]
-                : undefined;
+              const typeInfo = specialTag ? MOD_TYPE_DISPLAY[specialTag] : undefined;
               const textColor = typeInfo?.textColor ?? "text-indigo-400";
               return (
-                <div
-                  key={`imp-${i}`}
-                  className="flex items-baseline gap-1.5 leading-snug"
-                >
-                  {typeInfo ? (
-                    <span
-                      className={`text-[9px] font-medium shrink-0 w-7 text-right ${typeInfo.labelColor}`}
-                    >
+                <div key={`imp-${i}`} className="flex items-baseline justify-between gap-1.5 leading-snug">
+                  <span className={`text-xs ${textColor}`}>{t(mod.text)}</span>
+                  {typeInfo && (
+                    <span className={`text-[9px] font-medium shrink-0 border rounded px-1 leading-tight ${typeInfo.labelColor} border-current/40`}>
                       {typeInfo.label}
                     </span>
-                  ) : (
-                    <span className="shrink-0 w-7" />
                   )}
-                  <span className={`text-xs ${textColor}`}>{t(mod.text)}</span>
                 </div>
               );
             })}
@@ -427,15 +418,11 @@ function ItemDetail({ slotLabel, item, onReplace, t }: ItemDetailProps) {
             {mods.explicits.map((mod, i) => {
               // 优先取 special tag 信息，否则用 posLabel（前缀/后缀）
               const specialTag = mod.tags.find((t) => MOD_TYPE_DISPLAY[t]);
-              const typeInfo = specialTag
-                ? MOD_TYPE_DISPLAY[specialTag]
-                : undefined;
+              const typeInfo = specialTag ? MOD_TYPE_DISPLAY[specialTag] : undefined;
               const label = typeInfo?.label ?? mod.posLabel ?? null;
               const labelColor =
                 typeInfo?.labelColor ??
-                (mod.posLabel === "前缀"
-                  ? "text-blue-400/60"
-                  : "text-pink-400/60");
+                (mod.posLabel === "前缀" ? "text-blue-400/60" : "text-pink-400/60");
               const textColor =
                 typeInfo?.textColor ??
                 (mod.posLabel === "前缀"
@@ -444,20 +431,13 @@ function ItemDetail({ slotLabel, item, onReplace, t }: ItemDetailProps) {
                     ? "text-pink-300/90"
                     : "text-indigo-400");
               return (
-                <div
-                  key={`exp-${i}`}
-                  className="flex items-baseline gap-1.5 leading-snug"
-                >
-                  {label ? (
-                    <span
-                      className={`text-[9px] font-medium shrink-0 w-7 text-right ${labelColor}`}
-                    >
+                <div key={`exp-${i}`} className="flex items-baseline justify-between gap-1.5 leading-snug">
+                  <span className={`text-xs ${textColor}`}>{t(mod.text)}</span>
+                  {label && (
+                    <span className={`text-[9px] font-medium shrink-0 border rounded px-1 leading-tight ${labelColor} border-current/40`}>
                       {label}
                     </span>
-                  ) : (
-                    <span className="shrink-0 w-7" />
                   )}
-                  <span className={`text-xs ${textColor}`}>{t(mod.text)}</span>
                 </div>
               );
             })}
