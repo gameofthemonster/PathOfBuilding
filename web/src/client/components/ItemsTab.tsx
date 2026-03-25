@@ -330,7 +330,7 @@ function ItemDetail({ slotLabel, item, onReplace, t }: ItemDetailProps) {
               const typeInfo = specialTag
                 ? MOD_TYPE_DISPLAY[specialTag]
                 : undefined;
-              const textColor = typeInfo?.textColor ?? "text-yellow-300/80";
+              const textColor = typeInfo?.textColor ?? "text-indigo-400";
               return (
                 <div
                   key={`imp-${i}`}
@@ -440,6 +440,9 @@ interface Props {
   onItemChange: (slotName: string, newItemText: string) => void;
 }
 
+// 天赋树珠宝插槽的 slot key 前缀
+const PASSIVE_SOCKET_PREFIX = "PassiveSocket:";
+
 export function ItemsTab({ buildConfig, onItemChange }: Props) {
   const { t } = useI18n();
   const [selectedSlot, setSelectedSlot] = useState(SLOT_ORDER[0]);
@@ -449,14 +452,35 @@ export function ItemsTab({ buildConfig, onItemChange }: Props) {
   const startWidth = useRef(0);
 
   const { itemList, slots } = buildConfig.items;
+  const jewels = buildConfig.tree.jewels ?? {};
+
+  // 天赋树插槽列表，按 nodeId 排序并编号
+  const jewelSocketSlots = Object.keys(jewels)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((nodeId, i) => ({
+      slotKey: `${PASSIVE_SOCKET_PREFIX}${nodeId}`,
+      label: `插槽 ${i + 1}`,
+      nodeId,
+    }));
 
   function getItem(slotName: string): Item | null {
+    if (slotName.startsWith(PASSIVE_SOCKET_PREFIX)) {
+      const nodeId = parseInt(slotName.slice(PASSIVE_SOCKET_PREFIX.length));
+      const itemId = jewels[nodeId];
+      if (!itemId) return null;
+      return itemList.find((i) => i.id === itemId) ?? null;
+    }
     const itemId = slots[slotName];
     if (!itemId) return null;
     return itemList.find((i) => i.id === itemId) ?? null;
   }
 
   const selectedItem = getItem(selectedSlot);
+  const selectedSlotLabel =
+    SLOT_LABELS[selectedSlot] ??
+    jewelSocketSlots.find((s) => s.slotKey === selectedSlot)?.label ??
+    selectedSlot;
 
   const onDividerMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -508,6 +532,46 @@ export function ItemsTab({ buildConfig, onItemChange }: Props) {
           onSelect={setSelectedSlot}
           t={t}
         />
+        {jewelSocketSlots.length > 0 && (
+          <div>
+            <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/30 border-b border-border/40">
+              天赋树{" "}
+              <span className="text-[9px] text-muted-foreground/50 font-normal normal-case tracking-normal">
+                Passive Tree
+              </span>
+            </div>
+            {jewelSocketSlots.map(({ slotKey, label, nodeId: _ }) => {
+              const item = getItem(slotKey);
+              const isSelected = selectedSlot === slotKey;
+              return (
+                <div
+                  key={slotKey}
+                  onClick={() => setSelectedSlot(slotKey)}
+                  className={`flex items-start gap-2 px-3 py-1.5 cursor-pointer border-l-2 transition-colors
+                    ${isSelected ? "border-l-primary bg-muted/60" : "border-l-transparent hover:bg-muted/30"}`}
+                >
+                  <span className="text-xs text-muted-foreground shrink-0 w-20 pt-px">
+                    {label}
+                  </span>
+                  {item ? (
+                    <div className="min-w-0">
+                      <div className={`truncate text-xs ${RARITY_COLORS[item.rarity] ?? ""}`}>
+                        {t(item.name || item.base)}
+                      </div>
+                      {item.name && item.base && (
+                        <div className="truncate text-[10px] text-muted-foreground/60">
+                          {t(item.base)}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground/40 italic">空</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* 拖拽分隔线 */}
@@ -519,7 +583,7 @@ export function ItemsTab({ buildConfig, onItemChange }: Props) {
       {/* 右侧：详情 */}
       <div className="flex-1 min-w-0 overflow-y-auto">
         <ItemDetail
-          slotLabel={SLOT_LABELS[selectedSlot] ?? selectedSlot}
+          slotLabel={selectedSlotLabel}
           item={selectedItem}
           onReplace={(text) => onItemChange(selectedSlot, text)}
           t={t}
