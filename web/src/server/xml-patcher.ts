@@ -80,19 +80,28 @@ export function applyPatch(originalXml: string, patch: BuildPatch): string {
     const allSkills = collectSkills(root.Skills)
     for (const skillPatch of patch.skills) {
       const skill = allSkills[skillPatch.index]
-      if (!skill) continue
+      if (!skill) {
+        console.error(`[patcher] skill not found at index ${skillPatch.index}, allSkills.length=${allSkills.length}`)
+        continue
+      }
       if (skillPatch.mainActiveSkill !== undefined) {
         skill["@_mainActiveSkill"] = String(skillPatch.mainActiveSkill)
       }
       if (!skillPatch.gems) continue
       for (const gemPatch of skillPatch.gems) {
         const gem = skill.Gem?.[gemPatch.index]
-        if (!gem) continue
+        if (!gem) {
+          console.error(`[patcher] gem not found at index ${gemPatch.index}, skill.Gem.length=${skill.Gem?.length}`)
+          continue
+        }
         if (gemPatch.skillId !== undefined) gem["@_skillId"] = gemPatch.skillId
         if (gemPatch.level !== undefined) gem["@_level"] = String(gemPatch.level)
         if (gemPatch.quality !== undefined) gem["@_quality"] = String(gemPatch.quality)
         if (gemPatch.enabled !== undefined) gem["@_enabled"] = String(gemPatch.enabled)
-        if (gemPatch.skillPart !== undefined) gem["@_skillPart"] = String(gemPatch.skillPart)
+        if (gemPatch.skillPart !== undefined) {
+          gem["@_skillPart"] = String(gemPatch.skillPart)
+          gem["@_skillPartCalcs"] = String(gemPatch.skillPart)
+        }
       }
     }
   }

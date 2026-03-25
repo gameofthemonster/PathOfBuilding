@@ -5,7 +5,7 @@ import {
   useCallback,
   useState,
 } from "react";
-import type { BuildConfig } from "../types";
+import type { BuildConfig, ClusterNode } from "../types";
 import { usePassiveTree } from "../hooks/usePassiveTree";
 import { fetchTreeMeta } from "../lib/tree-data";
 import type {
@@ -141,10 +141,11 @@ const sheetCache = new Map<string, HTMLImageElement | null>();
 
 interface Props {
   buildConfig: BuildConfig;
+  clusterNodes?: ClusterNode[];
   onAllocChange?: (allocNodes: number[]) => void;
 }
 
-export function PassiveTreeTab({ buildConfig, onAllocChange }: Props) {
+export function PassiveTreeTab({ buildConfig, clusterNodes, onAllocChange }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef({ dragging: false, lastX: 0, lastY: 0 });
@@ -165,6 +166,7 @@ export function PassiveTreeTab({ buildConfig, onAllocChange }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const { nodes, allocated, toggleNode } = usePassiveTree(
     buildConfig.tree.allocNodes,
+    clusterNodes,
   );
   const { t } = useI18n();
 
@@ -573,8 +575,8 @@ export function PassiveTreeTab({ buildConfig, onAllocChange }: Props) {
                 : "JewelSocketAltNormal";
             const socketCoord = sprites.frames[spriteName];
             if (socketCoord) {
-              const dw = socketCoord.w * sc * 1.33 * 2;
-              const dh = socketCoord.h * sc * 1.33 * 2;
+              const dw = Math.max(socketCoord.w * sc * 1.33 * 2, 3);
+              const dh = Math.max(socketCoord.h * sc * 1.33 * 2, 3);
               drawSprite(socketCoord, sx, sy, dw, dh);
               continue;
             }
@@ -775,16 +777,23 @@ export function PassiveTreeTab({ buildConfig, onAllocChange }: Props) {
       my = e.clientY - rect.top;
     const { scale: sc, offsetX, offsetY } = viewRef.current;
     let found: TreeNode | null = null;
+    let foundDist = Infinity;
     for (const node of nodes) {
       const sx = node.x * sc + offsetX,
         sy = node.y * sc + offsetY;
       const minR = NODE_MIN_RADIUS[node.type] ?? 2;
       const r = Math.max((NODE_RADIUS[node.type] ?? 8) * sc, minR);
-      if (
-        Math.sqrt((mx - sx) ** 2 + (my - sy) ** 2) <= Math.max(r * 1.5 + 4, 12)
-      ) {
-        found = node;
-        break;
+      const dist = Math.sqrt((mx - sx) ** 2 + (my - sy) ** 2);
+      if (dist <= Math.max(r * 1.5 + 4, 12)) {
+        // Prefer Socket nodes; among same type, prefer the closer one
+        if (
+          !found ||
+          (node.type === "Socket" && found.type !== "Socket") ||
+          (node.type === found.type && dist < foundDist)
+        ) {
+          found = node;
+          foundDist = dist;
+        }
       }
     }
     if (found) {

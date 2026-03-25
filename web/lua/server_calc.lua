@@ -484,23 +484,47 @@ while true do
       return json.encode({ error = tostring(loadErr) })
     end
 
-    local output = build.calcsTab and build.calcsTab.mainOutput
-    if not output then
-      -- 尝试明确调用 BuildOutput，捕获错误
+    -- 确保 mainOutput 已计算（作为后备）
+    if not (build.calcsTab and build.calcsTab.mainOutput) then
       local ok2, err2 = pcall(function() build.calcsTab:BuildOutput() end)
       if not ok2 then
         return json.encode({ error = "BuildOutput threw: " .. tostring(err2) })
       end
-      output = build.calcsTab.mainOutput
-      if not output then
+      if not build.calcsTab.mainOutput then
         return json.encode({ error = "mainOutput still nil after explicit BuildOutput; mainEnv=" .. tostring(build.calcsTab.mainEnv) })
       end
     end
+
+    -- 使用 CALCS 模式重新计算（与 POB Calcs Tab 行为一致）。
+    -- 关键：将 calcsTab.input.skill_number 同步为 build.mainSocketGroup，
+    -- 使 CALCS 模式计算与用户选定的主技能相同的 socket group。
+    -- （CalcSetup.lua:1426 中 CALCS 模式用 calcsInput.skill_number 而非 build.mainSocketGroup）
+    if build.calcsTab and build.calcsTab.input then
+      build.calcsTab.input.skill_number = build.mainSocketGroup or 1
+    end
+    local ok_calcs, calcsEnv = pcall(function()
+      return build.calcsTab.calcs.buildOutput(build, "CALCS")
+    end)
+
+    -- 优先从 CALCS 模式读取所有 stats（与 POB Calcs Tab 一致）；
+    -- 若 CALCS 失败则回退到 mainOutput（MAIN 模式）。
     local stats = {}
-    for _, key in ipairs(EXPORT_STATS) do
-      local v = output[key]
-      if type(v) == "number" then
-        stats[key] = v
+    if ok_calcs and calcsEnv and calcsEnv.player and calcsEnv.player.output then
+      local calcsOut = calcsEnv.player.output
+      for _, key in ipairs(EXPORT_STATS) do
+        local v = calcsOut[key]
+        if type(v) == "number" then
+          stats[key] = v
+        end
+      end
+    else
+      -- 回退：从 MAIN 模式读取
+      local output = build.calcsTab.mainOutput
+      for _, key in ipairs(EXPORT_STATS) do
+        local v = output[key]
+        if type(v) == "number" then
+          stats[key] = v
+        end
       end
     end
 
@@ -515,27 +539,6 @@ while true do
     -- breakdown[statKey] is a Lua array of strings like "200 ^8(base)", "x 1.50 ^8(increased/reduced)", "= 300"
     -- We strip the ^N and ^xRRGGBB color escape codes before sending to the frontend.
     local breakdown = {}
-    local ok_calcs, calcsEnv = pcall(function()
-      return build.calcsTab.calcs.buildOutput(build, "CALCS")
-    end)
-    -- Extract per-damage-type hit ranges from CALCS mode (only set when env.mode == "CALCS")
-    if ok_calcs and calcsEnv and calcsEnv.player and calcsEnv.player.output then
-      local CALCS_STAT_KEYS = {
-        "PhysicalMin", "PhysicalMax",
-        "LightningMin", "LightningMax",
-        "ColdMin", "ColdMax",
-        "FireMin", "FireMax",
-        "ChaosMin", "ChaosMax",
-        "PhysicalDPS", "LightningDPS", "ColdDPS", "FireDPS", "ChaosDPS",
-        "ElementalDPS",
-      }
-      for _, key in ipairs(CALCS_STAT_KEYS) do
-        local v = calcsEnv.player.output[key]
-        if type(v) == "number" then
-          stats[key] = v
-        end
-      end
-    end
 
     if ok_calcs and calcsEnv and calcsEnv.player and calcsEnv.player.breakdown then
       local bd = calcsEnv.player.breakdown
@@ -619,10 +622,49 @@ while true do
       end
     end
 
+    -- 收集星团珠宝子图节点（id >= 0x10000，由 PassiveSpec:BuildSubgraph 动态生成）
+    local clusterNodes = {}
+    if build.spec then
+      for _, node in pairs(build.spec.nodes or {}) do
+        local nid = tonumber(node.id) or 0
+        if nid >= 0x10000 and node.x and node.y then
+          local rawMods = {}
+          if type(node.sd) == "table" then
+            for _, m in ipairs(node.sd) do
+              if type(m) == "string" then table.insert(rawMods, m) end
+            end
+          end
+          -- node.linked 是对象数组，提取各自的 id 作为 out
+          local outIds = {}
+          if type(node.linked) == "table" then
+            for _, linked in ipairs(node.linked) do
+              local oid = linked.id
+              if oid then table.insert(outIds, oid) end
+            end
+          end
+          local iconFile = nil
+          if node.icon then
+            iconFile = tostring(node.icon):match("([^/]+)%.%a+$")
+          end
+          table.insert(clusterNodes, {
+            id = nid,
+            name = node.dn or node.name or "",
+            type = node.type or "Normal",
+            x = node.x,
+            y = node.y,
+            mods = rawMods,
+            out = outIds,
+            icon = iconFile,
+          })
+        end
+      end
+    end
+
     return json.encode({
       stats = stats, warnings = warnings, breakdown = breakdown,
       skillParts = skillParts, skillPartIndex = skillPartIndex,
       skillPartGemGroupIndex = skillPartGemGroupIndex, skillPartGemIndex = skillPartGemIndex,
+      clusterNodes = clusterNodes,
     })
   end)
 

@@ -90,7 +90,7 @@ export function TabsArea({ buildConfig, result, onItemChange, onSkillChange, onC
       </TabsContent>
       <TabsContent value="tree" className="p-0 flex-1">
         {buildConfig ? (
-          <PassiveTreeTab buildConfig={buildConfig} onAllocChange={onAllocChange ?? undefined} />
+          <PassiveTreeTab buildConfig={buildConfig} clusterNodes={result?.clusterNodes} onAllocChange={onAllocChange ?? undefined} />
         ) : (
           <div className="p-4 text-sm text-muted-foreground">天赋树（Phase 4）</div>
         )}
