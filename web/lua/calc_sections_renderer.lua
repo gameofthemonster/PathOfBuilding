@@ -179,25 +179,6 @@ function M.renderCalcSections(output)
   end
 
   -- -------------------------------------------------------------------------
-  -- DPS / Speed (unified section for quick overview)
-  -- -------------------------------------------------------------------------
-  do
-    local rows = {}
-    table.insert(rows, row("Total DPS", fmt_int(get(output,"TotalDPS")), "TotalDPS", have(output,"TotalDPS")))
-    table.insert(rows, row("Full DPS", fmt_int(get(output,"FullDPS")), "FullDPS", have(output,"FullDPS")))
-    table.insert(rows, row("Combined DPS", fmt_int(get(output,"CombinedDPS")), "CombinedDPS", have(output,"CombinedDPS")))
-    table.insert(rows, row("Skill DPS", fmt_int(get(output,"SkillDPS")), nil, have(output,"SkillDPS")))
-    table.insert(rows, row("Attacks/s", fmt_speed(get(output,"Speed")), "Speed", have(output,"Speed")))
-    table.insert(rows, row("MH Attacks/s", fmt_speed(get(output,"MainHand.Speed")), "MainHand.Speed", have(output,"MainHand.Speed")))
-    table.insert(rows, row("OH Attacks/s", fmt_speed(get(output,"OffHand.Speed")), "OffHand.Speed", have(output,"OffHand.Speed")))
-    table.insert(rows, row("Cast Speed", fmt_speed(get(output,"Speed")), "Speed", false))  -- shown via Speed already
-
-    table.insert(sections, make_section("DPS", "Skill DPS", COL_OFFENCE, false, "left-a", {
-      make_subsection("DPS", rows)
-    }))
-  end
-
-  -- -------------------------------------------------------------------------
   -- Speed
   -- -------------------------------------------------------------------------
   do
@@ -270,6 +251,14 @@ function M.renderCalcSections(output)
     table.insert(rows, row("Active Mine Limit", tostring(math.floor(get(output,"ActiveMineLimit")+0.5)), nil, have(output,"ActiveMineLimit")))
     table.insert(rows, row("Repeat Count", tostring(math.floor(get(output,"RepeatCount")+0.5)), nil, have(output,"RepeatCount")))
     table.insert(rows, row("DPS Multiplier", fmt_dec2(get(output,"SkillDPSMultiplier")), "SkillDPSMultiplier", have(output,"SkillDPSMultiplier")))
+    table.insert(rows, row("Mana Cost", fmt_int(get(output,"ManaCost")), "ManaCost", have(output,"ManaHasCost")))
+    table.insert(rows, row("Mana %/s Cost", fmt_dec2(get(output,"ManaPercentPerSecondCost")) .. "%", "ManaPercentPerSecondCost", have(output,"ManaPercentPerSecondHasCost")))
+    table.insert(rows, row("Life Cost", fmt_int(get(output,"LifeCost")), "LifeCost", have(output,"LifeHasCost")))
+    table.insert(rows, row("ES Cost", fmt_int(get(output,"ESCost")), "ESCost", have(output,"ESHasCost")))
+    table.insert(rows, row("Rage Cost", fmt_int(get(output,"RageCost")), "RageCost", have(output,"RageHasCost")))
+    table.insert(rows, row("Soul Cost", fmt_int(get(output,"SoulCost")), "SoulCost", have(output,"SoulHasCost")))
+    table.insert(rows, row("Mana Reserved", fmt_int(get(output,"ManaReserved")), "ManaReserved", have(output,"ManaReservedMod")))
+    table.insert(rows, row("Life Reserved", fmt_int(get(output,"LifeReserved")), "LifeReserved", have(output,"LifeReservedMod")))
 
     table.insert(sections, make_section("SkillTypeStats", "Skill Type-Specific Stats", COL_OFFENCE, false, "left-a", {
       make_subsection("Skill Stats", rows)
@@ -467,25 +456,6 @@ function M.renderCalcSections(output)
 
     table.insert(sections, make_section("Warcries", "Exerting Warcries", COL_OFFENCE, true, "left-b", {
       make_subsection("Warcries", rows)
-    }))
-  end
-
-  -- -------------------------------------------------------------------------
-  -- Cost (Skill costs)
-  -- -------------------------------------------------------------------------
-  do
-    local rows = {}
-    table.insert(rows, row("Mana Cost", fmt_int(get(output,"ManaCost")), "ManaCost", have(output,"ManaHasCost")))
-    table.insert(rows, row("Mana %/s Cost", fmt_dec2(get(output,"ManaPercentPerSecondCost")) .. "%", "ManaPercentPerSecondCost", have(output,"ManaPercentPerSecondHasCost")))
-    table.insert(rows, row("Life Cost", fmt_int(get(output,"LifeCost")), "LifeCost", have(output,"LifeHasCost")))
-    table.insert(rows, row("ES Cost", fmt_int(get(output,"ESCost")), "ESCost", have(output,"ESHasCost")))
-    table.insert(rows, row("Rage Cost", fmt_int(get(output,"RageCost")), "RageCost", have(output,"RageHasCost")))
-    table.insert(rows, row("Soul Cost", fmt_int(get(output,"SoulCost")), "SoulCost", have(output,"SoulHasCost")))
-    table.insert(rows, row("Mana Reserved", fmt_int(get(output,"ManaReserved")), "ManaReserved", have(output,"ManaReservedMod")))
-    table.insert(rows, row("Life Reserved", fmt_int(get(output,"LifeReserved")), "LifeReserved", have(output,"LifeReservedMod")))
-
-    table.insert(sections, make_section("Cost", "Skill Cost", COL_OFFENCE, false, "left-b", {
-      make_subsection("Cost", rows)
     }))
   end
 
@@ -726,67 +696,6 @@ function M.renderCalcSections(output)
     table.insert(sections, make_section("MiscDefences", "Other Defences", COL_DEFENCE, false, "right", {
       make_subsection("Other Defences", mainRows),
       make_subsection("Fortification", fortRows),
-    }))
-  end
-
-  -- -------------------------------------------------------------------------
-  -- DamageTaken
-  -- -------------------------------------------------------------------------
-  do
-    local hitRows = {}
-    table.insert(hitRows, row("Total Hit Taken", fmt_int(get(output,"totalTakenHit")), "totalTakenHit", have(output,"totalTakenHit")))
-    table.insert(hitRows, row("Physical", fmt_int(get(output,"PhysicalTakenHit")), "PhysicalTakenHit", have(output,"PhysicalTakenHit")))
-    table.insert(hitRows, row("Lightning", fmt_int(get(output,"LightningTakenHit")), "LightningTakenHit", have(output,"LightningTakenHit")))
-    table.insert(hitRows, row("Cold", fmt_int(get(output,"ColdTakenHit")), "ColdTakenHit", have(output,"ColdTakenHit")))
-    table.insert(hitRows, row("Fire", fmt_int(get(output,"FireTakenHit")), "FireTakenHit", have(output,"FireTakenHit")))
-    table.insert(hitRows, row("Chaos", fmt_int(get(output,"ChaosTakenHit")), "ChaosTakenHit", have(output,"ChaosTakenHit")))
-    table.insert(hitRows, row("Hits Before Death", fmt_dec1(get(output,"NumberOfDamagingHits")), nil, have(output,"NumberOfDamagingHits")))
-
-    local ehpRows = {}
-    table.insert(ehpRows, row("Effective Hit Pool", fmt_int(get(output,"TotalEHP")), "TotalEHP", have(output,"TotalEHP")))
-    table.insert(ehpRows, row("Total Hits Before Death", fmt_dec1(get(output,"TotalNumberOfHits")), "TotalNumberOfHits", have(output,"TotalNumberOfHits")))
-    table.insert(ehpRows, row("Time Before Death", fmt_dec1(get(output,"EHPSurvivalTime")) .. "s", "EHPSurvivalTime", have(output,"EHPSurvivalTime")))
-
-    local maxHitRows = {}
-    table.insert(maxHitRows, row("Physical", fmt_int(get(output,"PhysicalMaximumHitTaken")), "PhysicalMaximumHitTaken", have(output,"PhysicalMaximumHitTaken")))
-    table.insert(maxHitRows, row("Lightning", fmt_int(get(output,"LightningMaximumHitTaken")), "LightningMaximumHitTaken", have(output,"LightningMaximumHitTaken")))
-    table.insert(maxHitRows, row("Cold", fmt_int(get(output,"ColdMaximumHitTaken")), "ColdMaximumHitTaken", have(output,"ColdMaximumHitTaken")))
-    table.insert(maxHitRows, row("Fire", fmt_int(get(output,"FireMaximumHitTaken")), "FireMaximumHitTaken", have(output,"FireMaximumHitTaken")))
-    table.insert(maxHitRows, row("Chaos", fmt_int(get(output,"ChaosMaximumHitTaken")), "ChaosMaximumHitTaken", have(output,"ChaosMaximumHitTaken")))
-
-    local regenRows = {}
-    table.insert(regenRows, row("Total Net Recovery", fmt_int(get(output,"TotalNetRegen")), "TotalNetRegen", have(output,"TotalNetRegen")))
-    table.insert(regenRows, row("Net Life Recovery", fmt_int(get(output,"NetLifeRegen")), "NetLifeRegen", have(output,"NetLifeRegen")))
-    table.insert(regenRows, row("Net Mana Recovery", fmt_int(get(output,"NetManaRegen")), "NetManaRegen", have(output,"NetManaRegen")))
-    table.insert(regenRows, row("Net ES Recovery", fmt_int(get(output,"NetEnergyShieldRegen")), "NetEnergyShieldRegen", have(output,"NetEnergyShieldRegen")))
-    table.insert(regenRows, row("Total Build Degen", fmt_int(get(output,"TotalBuildDegen")), "TotalBuildDegen", have(output,"TotalBuildDegen")))
-
-    table.insert(sections, make_section("DamageTaken", "Damage Taken", COL_DEFENCE, false, "right", {
-      make_subsection("Damage Taken", hitRows),
-      make_subsection("Effective \"Health\" Pool", ehpRows),
-      make_subsection("Maximum Hit Taken", maxHitRows),
-      make_subsection("Dots and Build Degens", regenRows),
-    }))
-  end
-
-  -- -------------------------------------------------------------------------
-  -- Summary
-  -- -------------------------------------------------------------------------
-  do
-    local rows = {}
-    table.insert(rows, row("Full DPS", fmt_int(get(output,"FullDPS")), "FullDPS", have(output,"FullDPS")))
-    table.insert(rows, row("Combined DPS", fmt_int(get(output,"CombinedDPS")), "CombinedDPS", have(output,"CombinedDPS")))
-    table.insert(rows, row("Life", fmt_int(get(output,"Life")), "Life", true))
-    table.insert(rows, row("Energy Shield", fmt_int(get(output,"EnergyShield")), "EnergyShield", true))
-    table.insert(rows, row("Total EHP", fmt_int(get(output,"TotalEHP")), "TotalEHP", have(output,"TotalEHP")))
-    table.insert(rows, row("Fire Resist", fmt_pct_int(get(output,"FireResist")), nil, true))
-    table.insert(rows, row("Cold Resist", fmt_pct_int(get(output,"ColdResist")), nil, true))
-    table.insert(rows, row("Lightning Resist", fmt_pct_int(get(output,"LightningResist")), nil, true))
-    table.insert(rows, row("Chaos Resist", fmt_pct_int(get(output,"ChaosResist")), nil, true))
-    table.insert(rows, row("Phys Dmg Reduct.", fmt_pct_int(get(output,"PhysicalDamageReduction")), nil, true))
-
-    table.insert(sections, make_section("Summary", "Summary", nil, false, "right", {
-      make_subsection("Summary", rows)
     }))
   end
 
