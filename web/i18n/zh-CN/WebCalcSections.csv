@@ -1,0 +1,102 @@
+key,zh-CN
+Hit Damage Range,命中伤害范围
+All Types,全类型
+Physical,物理
+Lightning,闪电
+Cold,冰霜
+Fire,火焰
+Chaos,混沌
+Skill Hit Damage,技能命中伤害
+Skill Average Hit,技能平均命中
+Average Damage,平均伤害
+MH Hit Damage,命中伤害(主)
+MH Average Hit,平均命中(主)
+OH Hit Damage,命中伤害(副)
+OH Average Hit,平均命中(副)
+Damage over Time,持续伤害(DoT)
+Skill DoT DPS,技能 DoT DPS
+Damage,伤害
+Skill DPS,技能 DPS
+Total DPS,总 DPS
+Bleed DPS,流血 DPS
+Ignite DPS,点燃 DPS
+Decay DPS,腐蚀 DPS
+Poison DPS,中毒 DPS
+Average Hit,平均命中
+Crit Chance,暴击率
+Crit Multiplier,暴击倍率
+Accuracy,命中率
+Attack Rate,攻击速率
+Cast Rate,施放速率
+Skill Speed,技能速率
+Skill Hit Rate,技能命中率
+Effective Speed,有效速率
+Effective Hit Chance,有效命中率
+Charges per Second,每秒层数
+Hits per Second,每秒命中次数
+Life,生命
+Life Regen,生命回复
+Life Leech Rate,生命偷取速率
+Maximum Life Leech Rate,最大生命偷取速率
+Life Gain on Hit,命中时获得生命
+Life Gain per Kill,击杀时获得生命
+Mana,魔力
+Mana Regen,魔力回复
+Mana Leech Rate,魔力偷取速率
+Maximum Mana Leech Rate,最大魔力偷取速率
+Mana Gain on Hit,命中时获得魔力
+Energy Shield,能量护盾
+ES Regen,能量护盾回复
+Ward,守卫
+Armour,护甲
+Evasion,闪避
+Dodge Chance,闪避几率
+Dodge Chance (Attacks),攻击闪避几率
+Dodge Chance (Spells),法术闪避几率
+Spell Suppression,法术压制
+Fire Resistance,火焰抗性
+Cold Resistance,冰霜抗性
+Lightning Resistance,闪电抗性
+Chaos Resistance,混沌抗性
+Block Chance,格挡几率
+Attack Block Chance,攻击格挡几率
+Spell Block Chance,法术格挡几率
+Attack Recovery,攻击恢复
+Spell Recovery,法术恢复
+Attributes,属性
+Strength,力量
+Dexterity,敏捷
+Intelligence,智慧
+Level,等级
+Resistances,抗性
+Armour/Evasion,护甲/闪避
+Block/Suppress,格挡/压制
+Cost,消耗
+Skill Cost,技能消耗
+Mana Cost,魔力消耗
+Life Cost,生命消耗
+ES Cost,能量护盾消耗
+Rage Cost,狂怒消耗
+Mana Reservation,魔力保留
+Life Reservation,生命保留
+Summary,总结
+Warnings,警告
+Offence,进攻
+Defence,防御
+Speed/Hit/Crit,速度/命中/暴击
+Bleed,流血
+Ignite,点燃
+Poison,中毒
+Impale,穿刺
+Crits,暴击
+Speed,速度
+Leech,偷取
+Regen,回复
+Mitigation,减伤
+Recovery,恢复
+Ailments,异常状态
+Movement Speed,移动速度
+Stun Threshold,昏迷阈值
+Knockback Chance,击退几率
+Life/ES/Ward,生命/护盾/守卫
+Minions,随从

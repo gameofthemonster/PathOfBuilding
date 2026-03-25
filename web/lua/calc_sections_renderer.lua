@@ -87,13 +87,38 @@ local function getv(output, key)
   return output[key]
 end
 
--- Row constructor
+-- Row constructor (list layout)
 local function row(label, value, breakdownKey, visible)
   return {
     label = label or "",
     value = tostring(value or ""),
     breakdownKey = breakdownKey or nil,
     hidden = not visible,
+  }
+end
+
+-- Cell constructor for table rows
+local function cell(value, breakdownKey)
+  return { value = tostring(value or ""), breakdownKey = breakdownKey or nil }
+end
+
+-- Table row constructor: label + array of cells
+local function trow(label, cells, visible)
+  return {
+    label = label or "",
+    value = "",
+    hidden = not visible,
+    cells = cells or {},
+  }
+end
+
+-- Table subsection constructor
+local function make_table_subsection(label, columns, rows)
+  return {
+    label = label or "",
+    layout = "table",
+    columns = columns or {},
+    rows = rows or {},
   }
 end
 
@@ -148,33 +173,86 @@ function M.renderCalcSections(output)
   -- =========================================================================
 
   -- -------------------------------------------------------------------------
-  -- HitDamage
+  -- HitDamage (table layout: All Types / Physical / Lightning / Cold / Fire / Chaos)
   -- -------------------------------------------------------------------------
   do
-    local rows = {}
-    local totalMin = get(output, "TotalMin")
-    local totalMax = get(output, "TotalMax")
-    table.insert(rows, row("Hit Damage (Total)", fmt_range(totalMin, totalMax), "Physical", have(output, "TotalMin")))
-    table.insert(rows, row("Physical", fmt_range(get(output,"PhysicalMin"), get(output,"PhysicalMax")), "Physical", have(output,"PhysicalMax")))
-    table.insert(rows, row("Lightning", fmt_range(get(output,"LightningMin"), get(output,"LightningMax")), "Lightning", have(output,"LightningMax")))
-    table.insert(rows, row("Cold", fmt_range(get(output,"ColdMin"), get(output,"ColdMax")), "Cold", have(output,"ColdMax")))
-    table.insert(rows, row("Fire", fmt_range(get(output,"FireMin"), get(output,"FireMax")), "Fire", have(output,"FireMax")))
-    table.insert(rows, row("Chaos", fmt_range(get(output,"ChaosMin"), get(output,"ChaosMax")), "Chaos", have(output,"ChaosMax")))
-    table.insert(rows, row("Average Hit", fmt_int(get(output,"AverageHit")), "AverageHit", have(output,"AverageHit")))
-    table.insert(rows, row("Average Damage", fmt_int(get(output,"AverageDamage")), "AverageDamage", have(output,"AverageDamage")))
-    -- Main hand
-    local mhMin = get(output,"MainHand.TotalMin")
-    local mhMax = get(output,"MainHand.TotalMax")
-    table.insert(rows, row("MH Hit Damage", fmt_range(mhMin, mhMax), nil, have(output,"MainHand.TotalMax")))
-    table.insert(rows, row("MH Average Hit", fmt_int(get(output,"MainHand.AverageHit")), "MainHand.AverageHit", have(output,"MainHand.AverageHit")))
-    -- Off hand
-    local ohMin = get(output,"OffHand.TotalMin")
-    local ohMax = get(output,"OffHand.TotalMax")
-    table.insert(rows, row("OH Hit Damage", fmt_range(ohMin, ohMax), nil, have(output,"OffHand.TotalMax")))
-    table.insert(rows, row("OH Average Hit", fmt_int(get(output,"OffHand.AverageHit")), "OffHand.AverageHit", have(output,"OffHand.AverageHit")))
+    local HIT_COLS = {
+      {label = "All Types"},
+      {label = "Physical"},
+      {label = "Lightning", color = "AAAAFF"},
+      {label = "Cold",      color = "88FFFF"},
+      {label = "Fire",      color = "FF8855"},
+      {label = "Chaos",     color = "C060A0"},
+    }
+
+    local trows = {}
+
+    -- Skill Hit Damage (min–max per damage type)
+    local anyHit = have(output,"TotalMax") or have(output,"PhysicalMax") or have(output,"LightningMax")
+                or have(output,"ColdMax")  or have(output,"FireMax")     or have(output,"ChaosMax")
+    table.insert(trows, trow("Skill Hit Damage", {
+      cell(fmt_range(get(output,"TotalMin"),     get(output,"TotalMax"))),
+      cell(fmt_range(get(output,"PhysicalMin"),  get(output,"PhysicalMax")),  "Physical"),
+      cell(fmt_range(get(output,"LightningMin"), get(output,"LightningMax")), "Lightning"),
+      cell(fmt_range(get(output,"ColdMin"),      get(output,"ColdMax")),      "Cold"),
+      cell(fmt_range(get(output,"FireMin"),      get(output,"FireMax")),      "Fire"),
+      cell(fmt_range(get(output,"ChaosMin"),     get(output,"ChaosMax")),     "Chaos"),
+    }, anyHit))
+
+    -- Skill Average Hit
+    if have(output,"AverageHit") then
+      table.insert(trows, trow("Skill Average Hit", {
+        cell(fmt_int(get(output,"AverageHit")), "AverageHit"),
+        cell(""), cell(""), cell(""), cell(""), cell(""),
+      }, true))
+    end
+
+    -- Average Damage (if different from AverageHit, e.g. when both weapons)
+    if have(output,"AverageDamage") then
+      table.insert(trows, trow("Average Damage", {
+        cell(fmt_int(get(output,"AverageDamage")), "AverageDamage"),
+        cell(""), cell(""), cell(""), cell(""), cell(""),
+      }, true))
+    end
+
+    -- Main Hand
+    if have(output,"MainHand.TotalMax") then
+      table.insert(trows, trow("MH Hit Damage", {
+        cell(fmt_range(get(output,"MainHand.TotalMin"),     get(output,"MainHand.TotalMax"))),
+        cell(fmt_range(get(output,"MainHand.PhysicalMin"),  get(output,"MainHand.PhysicalMax")),  "MainHand.Physical"),
+        cell(fmt_range(get(output,"MainHand.LightningMin"), get(output,"MainHand.LightningMax")), "MainHand.Lightning"),
+        cell(fmt_range(get(output,"MainHand.ColdMin"),      get(output,"MainHand.ColdMax")),      "MainHand.Cold"),
+        cell(fmt_range(get(output,"MainHand.FireMin"),      get(output,"MainHand.FireMax")),      "MainHand.Fire"),
+        cell(fmt_range(get(output,"MainHand.ChaosMin"),     get(output,"MainHand.ChaosMax")),     "MainHand.Chaos"),
+      }, true))
+      if have(output,"MainHand.AverageHit") then
+        table.insert(trows, trow("MH Average Hit", {
+          cell(fmt_int(get(output,"MainHand.AverageHit")), "MainHand.AverageHit"),
+          cell(""), cell(""), cell(""), cell(""), cell(""),
+        }, true))
+      end
+    end
+
+    -- Off Hand
+    if have(output,"OffHand.TotalMax") then
+      table.insert(trows, trow("OH Hit Damage", {
+        cell(fmt_range(get(output,"OffHand.TotalMin"),     get(output,"OffHand.TotalMax"))),
+        cell(fmt_range(get(output,"OffHand.PhysicalMin"),  get(output,"OffHand.PhysicalMax")),  "OffHand.Physical"),
+        cell(fmt_range(get(output,"OffHand.LightningMin"), get(output,"OffHand.LightningMax")), "OffHand.Lightning"),
+        cell(fmt_range(get(output,"OffHand.ColdMin"),      get(output,"OffHand.ColdMax")),      "OffHand.Cold"),
+        cell(fmt_range(get(output,"OffHand.FireMin"),      get(output,"OffHand.FireMax")),      "OffHand.Fire"),
+        cell(fmt_range(get(output,"OffHand.ChaosMin"),     get(output,"OffHand.ChaosMax")),     "OffHand.Chaos"),
+      }, true))
+      if have(output,"OffHand.AverageHit") then
+        table.insert(trows, trow("OH Average Hit", {
+          cell(fmt_int(get(output,"OffHand.AverageHit")), "OffHand.AverageHit"),
+          cell(""), cell(""), cell(""), cell(""), cell(""),
+        }, true))
+      end
+    end
 
     table.insert(sections, make_section("HitDamage", "Hit Damage Range", COL_OFFENCE, false, "left-a", {
-      make_subsection("Skill Hit Damage", rows)
+      make_table_subsection("Skill Hit Damage", HIT_COLS, trows)
     }))
   end
 
@@ -270,20 +348,42 @@ function M.renderCalcSections(output)
   -- =========================================================================
 
   -- -------------------------------------------------------------------------
-  -- Dot
+  -- Dot (table layout: All Types / Physical / Lightning / Cold / Fire / Chaos)
   -- -------------------------------------------------------------------------
   do
-    local rows = {}
-    table.insert(rows, row("Total DoT DPS", fmt_int(get(output,"TotalDotCalcSection")), "TotalDot", have(output,"TotalDotCalcSection")))
-    table.insert(rows, row("Total DoT Instance", fmt_int(get(output,"TotalDotInstance")), nil, have(output,"TotalDotInstance")))
-    table.insert(rows, row("Physical DoT", fmt_int(get(output,"PhysicalDot")), "PhysicalDot", have(output,"PhysicalDot")))
-    table.insert(rows, row("Lightning DoT", fmt_int(get(output,"LightningDot")), "LightningDot", have(output,"LightningDot")))
-    table.insert(rows, row("Cold DoT", fmt_int(get(output,"ColdDot")), "ColdDot", have(output,"ColdDot")))
-    table.insert(rows, row("Fire DoT", fmt_int(get(output,"FireDot")), "FireDot", have(output,"FireDot")))
-    table.insert(rows, row("Chaos DoT", fmt_int(get(output,"ChaosDot")), "ChaosDot", have(output,"ChaosDot")))
+    local DOT_COLS = {
+      {label = "All Types"},
+      {label = "Physical"},
+      {label = "Lightning", color = "AAAAFF"},
+      {label = "Cold",      color = "88FFFF"},
+      {label = "Fire",      color = "FF8855"},
+      {label = "Chaos",     color = "C060A0"},
+    }
+
+    local trows = {}
+
+    -- Damage over Time (per-type DoT DPS instance)
+    local anyDot = have(output,"TotalDotInstance") or have(output,"PhysicalDot") or have(output,"LightningDot")
+                or have(output,"ColdDot") or have(output,"FireDot") or have(output,"ChaosDot")
+    table.insert(trows, trow("Damage over Time", {
+      cell(fmt_int(get(output,"TotalDotInstance"))),
+      cell(fmt_int(get(output,"PhysicalDot")),  "PhysicalDot"),
+      cell(fmt_int(get(output,"LightningDot")), "LightningDot"),
+      cell(fmt_int(get(output,"ColdDot")),      "ColdDot"),
+      cell(fmt_int(get(output,"FireDot")),       "FireDot"),
+      cell(fmt_int(get(output,"ChaosDot")),     "ChaosDot"),
+    }, anyDot))
+
+    -- Skill DoT DPS (total only)
+    if have(output,"TotalDotCalcSection") then
+      table.insert(trows, trow("Skill DoT DPS", {
+        cell(fmt_int(get(output,"TotalDotCalcSection")), "TotalDot"),
+        cell(""), cell(""), cell(""), cell(""), cell(""),
+      }, true))
+    end
 
     table.insert(sections, make_section("Dot", "Damage over Time", COL_OFFENCE, false, "left-b", {
-      make_subsection("Skill Damage over Time", rows)
+      make_table_subsection("Skill Damage over Time", DOT_COLS, trows)
     }))
   end
 

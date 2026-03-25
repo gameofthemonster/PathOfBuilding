@@ -872,98 +872,105 @@ while true do
     end
 
     -- 序列化 buildConfig（由 Lua 权威解析，替代 TypeScript xml-parser.ts）
-    local bcSkills = {}
-    if build.skillsTab and build.skillsTab.socketGroupList then
-      for _, grp in ipairs(build.skillsTab.socketGroupList) do
-        local bcGems = {}
-        for _, gem in ipairs(grp.gemList or {}) do
-          table.insert(bcGems, {
-            skillId   = gem.skillId or "",
-            gemId     = gem.gemId or "",
-            nameSpec  = gem.nameSpec or "",
-            level     = gem.level or 20,
-            quality   = gem.quality or 0,
-            qualityId = type(gem.qualityId) == "string" and gem.qualityId or "Default",
-            enabled   = gem.enabled ~= false,
-          })
-        end
-        table.insert(bcSkills, {
-          enabled         = grp.enabled ~= false,
-          label           = grp.label or "",
-          slot            = grp.slot or "",
-          mainActiveSkill = grp.mainActiveSkill or 1,
-          gems            = bcGems,
-        })
-      end
-    end
-
-    local bcItemList = {}
-    local bcSlots    = {}
-    if build.itemsTab then
-      if build.itemsTab.items then
-        for _, item in pairs(build.itemsTab.items) do
-          if type(item) == "table" and item.id and item.id > 0 then
-            table.insert(bcItemList, {
-              id      = item.id,
-              rawText = item.raw or "",
-              name    = item.name or "",
-              base    = item.baseName or "",
-              rarity  = item.rarity or "NORMAL",
+    -- 用独立 pcall 保护：即使序列化失败也不影响主计算结果
+    local buildConfigResult = nil
+    local ok_bc, bc_err = pcall(function()
+      local bcSkills = {}
+      if build.skillsTab and build.skillsTab.socketGroupList then
+        for _, grp in ipairs(build.skillsTab.socketGroupList) do
+          local bcGems = {}
+          for _, gem in ipairs(grp.gemList or {}) do
+            table.insert(bcGems, {
+              skillId   = gem.skillId or "",
+              gemId     = gem.gemId or "",
+              nameSpec  = gem.nameSpec or "",
+              level     = gem.level or 20,
+              quality   = gem.quality or 0,
+              qualityId = type(gem.qualityId) == "string" and gem.qualityId or "Default",
+              enabled   = gem.enabled ~= false,
             })
           end
+          table.insert(bcSkills, {
+            enabled         = grp.enabled ~= false,
+            label           = grp.label or "",
+            slot            = grp.slot or "",
+            mainActiveSkill = grp.mainActiveSkill or 1,
+            gems            = bcGems,
+          })
         end
       end
-      if build.itemsTab.activeItemSet then
-        for slotName, slot in pairs(build.itemsTab.activeItemSet) do
-          if type(slot) == "table" and slot.selItemId and slot.selItemId > 0 then
-            bcSlots[slotName] = slot.selItemId
+
+      local bcItemList = {}
+      local bcSlots    = {}
+      if build.itemsTab then
+        if build.itemsTab.items then
+          for _, item in pairs(build.itemsTab.items) do
+            if type(item) == "table" and item.id and item.id > 0 then
+              table.insert(bcItemList, {
+                id      = item.id,
+                rawText = item.raw or "",
+                name    = item.name or "",
+                base    = item.baseName or "",
+                rarity  = item.rarity or "NORMAL",
+              })
+            end
+          end
+        end
+        if build.itemsTab.activeItemSet then
+          for slotName, slot in pairs(build.itemsTab.activeItemSet) do
+            if type(slot) == "table" and slot.selItemId and slot.selItemId > 0 then
+              bcSlots[slotName] = slot.selItemId
+            end
           end
         end
       end
-    end
 
-    local bcAllocNodes = {}
-    local bcJewels     = {}
-    if build.spec then
-      for nodeId, val in pairs(build.spec.allocNodes or {}) do
-        if val then table.insert(bcAllocNodes, tonumber(nodeId) or 0) end
-      end
-      if build.spec.jewels then
-        for nodeId, itemId in pairs(build.spec.jewels) do
-          bcJewels[tostring(nodeId)] = itemId
+      local bcAllocNodes = {}
+      local bcJewels     = {}
+      if build.spec then
+        for nodeId, val in pairs(build.spec.allocNodes or {}) do
+          if val then table.insert(bcAllocNodes, tonumber(nodeId) or 0) end
+        end
+        if build.spec.jewels then
+          for nodeId, itemId in pairs(build.spec.jewels) do
+            bcJewels[tostring(nodeId)] = itemId
+          end
         end
       end
-    end
 
-    local bcConfig = {}
-    if build.calcsTab and build.calcsTab.input then
-      for k, v in pairs(build.calcsTab.input) do
-        local vt = type(v)
-        if vt == "boolean" or vt == "number" or vt == "string" then
-          bcConfig[k] = v
+      local bcConfig = {}
+      if build.calcsTab and build.calcsTab.input then
+        for k, v in pairs(build.calcsTab.input) do
+          local vt = type(v)
+          if vt == "boolean" or vt == "number" or vt == "string" then
+            bcConfig[k] = v
+          end
         end
       end
-    end
 
-    local buildConfigResult = {
-      level            = build.characterLevel or 1,
-      className        = (build.spec and build.spec.curClassName)       or "Scion",
-      ascendClassName  = (build.spec and build.spec.curAscendClassName) or "None",
-      mainSocketGroup  = build.mainSocketGroup or 1,
-      skills           = bcSkills,
-      tree = {
-        treeVersion   = (build.spec and build.spec.treeVersion)      or "3_28",
-        classId       = (build.spec and build.spec.curClassId)       or 0,
-        ascendClassId = (build.spec and build.spec.curAscendClassId) or 0,
-        allocNodes    = bcAllocNodes,
-        jewels        = next(bcJewels) and bcJewels or nil,
-      },
-      items = {
-        itemList = bcItemList,
-        slots    = bcSlots,
-      },
-      config = bcConfig,
-    }
+      buildConfigResult = {
+        level            = build.characterLevel or 1,
+        className        = (build.spec and build.spec.curClassName)       or "Scion",
+        ascendClassName  = (build.spec and build.spec.curAscendClassName) or "None",
+        mainSocketGroup  = build.mainSocketGroup or 1,
+        skills           = bcSkills,
+        tree = {
+          treeVersion   = (build.spec and build.spec.treeVersion)      or "3_28",
+          classId       = (build.spec and build.spec.curClassId)       or 0,
+          ascendClassId = (build.spec and build.spec.curAscendClassId) or 0,
+          allocNodes    = bcAllocNodes,
+          jewels        = next(bcJewels) and bcJewels or nil,
+        },
+        items = {
+          itemList = bcItemList,
+          slots    = bcSlots,
+        },
+        config = bcConfig,
+      }
+    end)
+    if not ok_bc then
+      io.stderr:write("[server_calc] buildConfig serialization error: " .. tostring(bc_err) .. "\n")
+    end
 
     return json.encode({
       stats = stats, warnings = warnings, breakdown = breakdown,

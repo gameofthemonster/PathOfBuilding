@@ -10,82 +10,149 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import type { BreakdownLine, BuildConfig, CalcResult, CalcSection, CalcRow } from "../types";
+import type { BreakdownLine, BuildConfig, CalcResult, CalcSection, CalcRow, CalcSubsection } from "../types";
 import { MainSkillSelector } from "./MainSkillSelector";
+import { useI18n } from "../hooks/useI18n";
 
-function BreakdownPopoverContent({
-  lines,
+function BreakdownPopover({
+  bkKey,
+  breakdown,
   label,
+  children,
 }: {
-  lines: BreakdownLine[];
+  bkKey: string;
+  breakdown?: Record<string, BreakdownLine[]>;
   label: string;
+  children: React.ReactNode;
 }) {
+  const lines = breakdown?.[bkKey];
+  if (!lines?.length) return <>{children}</>;
   const textLines = lines.filter((l) => l.label !== undefined);
   const slotLines = lines.filter((l) => l.source !== undefined);
   return (
-    <>
-      <div className="text-xs font-semibold mb-2">{label} 构成</div>
-      {textLines.length > 0 && (
-        <div className="flex flex-col gap-0.5">
-          {textLines.map((line, i) => (
-            <div key={i} className="text-xs text-muted-foreground font-mono leading-snug">
-              {line.label}
-            </div>
-          ))}
-        </div>
-      )}
-      {slotLines.length > 0 && (
-        <>
-          {textLines.length > 0 && <div className="my-1.5 border-t border-border/30" />}
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-muted-foreground/60 text-[10px]">
-                <th className="text-right pr-3 font-normal pb-0.5">值</th>
-                <th className="text-left font-normal pb-0.5">来源</th>
-              </tr>
-            </thead>
-            <tbody>
-              {slotLines.map((line, i) => (
-                <tr key={i}>
-                  <td className="text-right pr-3 font-mono">{line.total}</td>
-                  <td className="text-left text-muted-foreground">{line.sourceName || line.source}</td>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="cursor-pointer hover:text-primary">{children}</button>
+      </PopoverTrigger>
+      <PopoverContent side="right" align="center" sideOffset={8} className="w-72 p-3">
+        <div className="text-xs font-semibold mb-2">{label} 构成</div>
+        {textLines.length > 0 && (
+          <div className="flex flex-col gap-0.5">
+            {textLines.map((line, i) => (
+              <div key={i} className="text-xs text-muted-foreground font-mono leading-snug">
+                {line.label}
+              </div>
+            ))}
+          </div>
+        )}
+        {slotLines.length > 0 && (
+          <>
+            {textLines.length > 0 && <div className="my-1.5 border-t border-border/30" />}
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-muted-foreground/60 text-[10px]">
+                  <th className="text-right pr-3 font-normal pb-0.5">值</th>
+                  <th className="text-left font-normal pb-0.5">来源</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
-    </>
+              </thead>
+              <tbody>
+                {slotLines.map((line, i) => (
+                  <tr key={i}>
+                    <td className="text-right pr-3 font-mono">{line.total}</td>
+                    <td className="text-left text-muted-foreground">{line.sourceName || line.source}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
 interface RenderedRowProps {
   row: CalcRow;
   breakdown?: Record<string, BreakdownLine[]>;
+  t: (key: string) => string;
 }
 
-function RenderedRow({ row, breakdown }: RenderedRowProps) {
+function RenderedRow({ row, breakdown, t }: RenderedRowProps) {
   const bkLines = row.breakdownKey ? breakdown?.[row.breakdownKey] : undefined;
 
   const valueEl = bkLines?.length ? (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button className="font-mono text-xs leading-tight text-right cursor-pointer hover:text-primary tabular-nums">
-          {row.value}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent side="right" align="center" sideOffset={8} className="w-72 p-3">
-        <BreakdownPopoverContent lines={bkLines} label={row.label} />
-      </PopoverContent>
-    </Popover>
+    <BreakdownPopover bkKey={row.breakdownKey!} breakdown={breakdown} label={t(row.label)}>
+      <span className="font-mono text-xs leading-tight text-right tabular-nums">{row.value}</span>
+    </BreakdownPopover>
   ) : (
     <span className="font-mono text-xs leading-tight text-right tabular-nums">{row.value}</span>
   );
 
   return (
     <div className="flex items-baseline justify-between gap-2 py-0.5 min-w-0">
-      <span className="text-[10px] text-muted-foreground truncate shrink">{row.label}</span>
+      <span className="text-[10px] text-muted-foreground truncate shrink">{t(row.label)}</span>
       {valueEl}
+    </div>
+  );
+}
+
+interface TableSubsectionProps {
+  sub: CalcSubsection;
+  breakdown?: Record<string, BreakdownLine[]>;
+  searchQuery: string;
+  t: (key: string) => string;
+}
+
+function TableSubsection({ sub, breakdown, searchQuery, t }: TableSubsectionProps) {
+  const lq = searchQuery.toLowerCase();
+  const visibleRows = sub.rows.filter((r) => {
+    if (r.hidden) return false;
+    if (!lq) return true;
+    return r.label.toLowerCase().includes(lq) ||
+      r.cells?.some((c) => c.value.toLowerCase().includes(lq));
+  });
+  if (!visibleRows.length) return null;
+
+  const cols = sub.columns ?? [];
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse" style={{ minWidth: `${cols.length * 60 + 80}px` }}>
+        <thead>
+          <tr>
+            <th className="text-left text-[8px] text-muted-foreground/50 font-normal pb-0.5 pr-1 w-20" />
+            {cols.map((col, ci) => (
+              <th
+                key={ci}
+                className="text-right text-[8px] font-normal pb-0.5 px-0.5 whitespace-nowrap"
+                style={col.color ? { color: `#${col.color}` } : { color: "hsl(var(--muted-foreground))" }}
+              >
+                {t(col.label)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {visibleRows.map((r, ri) => (
+            <tr key={ri} className="odd:bg-muted/20">
+              <td className="text-[9px] text-muted-foreground py-0.5 pr-1 truncate max-w-[80px]">
+                {t(r.label)}
+              </td>
+              {r.cells?.map((c, ci) => (
+                <td key={ci} className="text-right font-mono tabular-nums text-[9px] px-0.5 py-0.5 whitespace-nowrap">
+                  {c.value && c.breakdownKey ? (
+                    <BreakdownPopover bkKey={c.breakdownKey} breakdown={breakdown} label={t(r.label)}>
+                      <span className="font-mono tabular-nums">{c.value}</span>
+                    </BreakdownPopover>
+                  ) : (
+                    c.value || <span className="text-muted-foreground/30">—</span>
+                  )}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -94,20 +161,32 @@ interface RenderedSectionProps {
   section: CalcSection;
   breakdown?: Record<string, BreakdownLine[]>;
   searchQuery: string;
+  t: (key: string) => string;
 }
 
-function RenderedSection({ section, breakdown, searchQuery }: RenderedSectionProps) {
+function RenderedSection({ section, breakdown, searchQuery, t }: RenderedSectionProps) {
   const [open, setOpen] = useState(!section.defaultCollapsed);
 
   const lq = searchQuery.toLowerCase();
-  const filteredSubs = section.subsections.map((sub) => ({
-    sub,
-    rows: sub.rows.filter((r) => {
+
+  // Pre-filter rows for each subsection
+  const filteredSubs = section.subsections.map((sub) => {
+    if (sub.layout === "table") {
+      const visibleRows = sub.rows.filter((r) => {
+        if (r.hidden) return false;
+        if (!lq) return true;
+        return r.label.toLowerCase().includes(lq) ||
+          r.cells?.some((c) => c.value.toLowerCase().includes(lq));
+      });
+      return { sub, rows: visibleRows };
+    }
+    const rows = sub.rows.filter((r) => {
       if (r.hidden) return false;
       if (!lq) return true;
       return r.label.toLowerCase().includes(lq);
-    }),
-  }));
+    });
+    return { sub, rows };
+  });
 
   if (!filteredSubs.some((fs) => fs.rows.length > 0)) return null;
 
@@ -115,7 +194,9 @@ function RenderedSection({ section, breakdown, searchQuery }: RenderedSectionPro
     <Collapsible open={open} onOpenChange={setOpen} className="break-inside-avoid">
       <CollapsibleTrigger className="flex items-center gap-1 w-full py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground">
         {open ? <CaretDown className="h-2.5 w-2.5" /> : <CaretRight className="h-2.5 w-2.5" />}
-        <span>{section.label}</span>
+        <span style={section.color ? { color: `#${section.color}` } : undefined}>
+          {t(section.label)}
+        </span>
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="px-1 pb-1 flex flex-col gap-0">
@@ -125,12 +206,16 @@ function RenderedSection({ section, breakdown, searchQuery }: RenderedSectionPro
               <div key={si}>
                 {sub.label && (
                   <div className="text-[9px] text-muted-foreground/60 uppercase tracking-wide pt-1 pb-0.5">
-                    {sub.label}
+                    {t(sub.label)}
                   </div>
                 )}
-                {rows.map((r, ri) => (
-                  <RenderedRow key={ri} row={r} breakdown={breakdown} />
-                ))}
+                {sub.layout === "table" ? (
+                  <TableSubsection sub={sub} breakdown={breakdown} searchQuery={searchQuery} t={t} />
+                ) : (
+                  rows.map((r, ri) => (
+                    <RenderedRow key={ri} row={r} breakdown={breakdown} t={t} />
+                  ))
+                )}
               </div>
             );
           })}
@@ -149,6 +234,7 @@ interface Props {
 
 export function CalcsTab({ result, buildConfig, onMainSkillChange, onSkillPartChange }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
+  const { t } = useI18n();
   const sections = result?.calcSections ?? [];
 
   const colA = sections.filter((s) => s.column === "left-a");
@@ -159,6 +245,7 @@ export function CalcsTab({ result, buildConfig, onMainSkillChange, onSkillPartCh
     section: s,
     breakdown: result.breakdown,
     searchQuery,
+    t,
   });
 
   return (
