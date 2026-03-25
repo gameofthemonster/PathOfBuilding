@@ -1,11 +1,14 @@
 import { Warning as AlertTriangle } from "@phosphor-icons/react"
 import type { CalcResult } from "../types"
+import { useI18n } from "../hooks/useI18n"
 
 interface Props {
   result: CalcResult
 }
 
 export function WarningsPanel({ result }: Props) {
+  const { t } = useI18n()
+
   if (result.warnings.length === 0) return null
 
   return (
@@ -17,7 +20,7 @@ export function WarningsPanel({ result }: Props) {
         {result.warnings.map((msg, i) => (
           <li key={i} className="flex items-start gap-1.5 text-xs text-yellow-500">
             <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-            <span>{msg}</span>
+            <span>{t(msg)}</span>
           </li>
         ))}
       </ul>
