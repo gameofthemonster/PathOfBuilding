@@ -106,6 +106,15 @@ const MOD_TYPE_DISPLAY: Record<string, ModTypeInfo> = {
   },
 };
 
+// 孔位颜色：R=力量, G=敏捷, B=智慧, W=白, A=深渊
+const SOCKET_COLORS: Record<string, string> = {
+  R: "#C3462B",
+  G: "#6BF56C",
+  B: "#6665E5",
+  W: "#FFFFFF",
+  A: "#B0B0B0",
+};
+
 const RARITY_COLORS: Record<string, string> = {
   UNIQUE: "text-[#AF6026]",
   RARE: "text-[#FFFF77]",
@@ -299,6 +308,27 @@ function ItemDetail({ slotLabel, item, onReplace, t }: ItemDetailProps) {
 
   const mods = item ? parseItemMods(item.rawText) : null;
 
+  // 解析 Sockets 行，返回 { color, linked } 数组，linked=true 表示与上一个孔位连接
+  const sockets = item
+    ? (() => {
+        const m = item.rawText.match(/^Sockets:\s*(.+)/m);
+        if (!m) return [];
+        const result: { color: string; linked: boolean }[] = [];
+        const raw = m[1].trim();
+        let linked = false;
+        for (let i = 0; i < raw.length; i++) {
+          const ch = raw[i];
+          if (ch === "-") { linked = true; continue; }
+          if (ch === " ") { linked = false; continue; }
+          if (/[RGBWA]/.test(ch)) {
+            result.push({ color: ch, linked: result.length > 0 && linked });
+            linked = false;
+          }
+        }
+        return result;
+      })()
+    : [];
+
   const itemLevel = item
     ? (() => {
         const m = item.rawText.match(/^Item Level:\s*(\d+)/m);
@@ -338,6 +368,20 @@ function ItemDetail({ slotLabel, item, onReplace, t }: ItemDetailProps) {
                   品质：<span className="text-muted-foreground">+{itemQuality}%</span>
                 </span>
               )}
+            </div>
+          )}
+          {sockets.length > 0 && (
+            <div className="flex items-center gap-0 mt-1 font-mono text-sm leading-none">
+              {sockets.map((s, i) => (
+                <span key={i}>
+                  {i > 0 && (
+                    <span className="text-muted-foreground/50 mx-0.5">
+                      {s.linked ? "=" : " "}
+                    </span>
+                  )}
+                  <span style={{ color: SOCKET_COLORS[s.color] }}>{s.color}</span>
+                </span>
+              ))}
             </div>
           )}
         </div>
