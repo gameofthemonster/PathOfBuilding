@@ -66,8 +66,8 @@ interface ModTypeInfo {
 const MOD_TYPE_DISPLAY: Record<string, ModTypeInfo> = {
   crafted: {
     label: "工艺",
-    textColor: "text-yellow-300/90",
-    labelColor: "text-yellow-400/70",
+    textColor: "text-sky-300/90",
+    labelColor: "text-sky-400/70",
   },
   exarch: {
     label: "焚界",
@@ -80,12 +80,12 @@ const MOD_TYPE_DISPLAY: Record<string, ModTypeInfo> = {
     labelColor: "text-teal-400/70",
   },
   fractured: {
-    label: "裂变",
-    textColor: "text-yellow-200/90",
-    labelColor: "text-yellow-300/70",
+    label: "分裂",
+    textColor: "text-stone-300/90",
+    labelColor: "text-stone-400/70",
   },
   scourge: {
-    label: "伤疤",
+    label: "天灾",
     textColor: "text-red-300/90",
     labelColor: "text-red-400/70",
   },
