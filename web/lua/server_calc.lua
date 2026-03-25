@@ -20,6 +20,15 @@ end
 -- 一次性加载 POB 引擎（约 1-3 秒）
 dofile("HeadlessWrapper.lua")
 
+-- Headless override: 自动接受版本转换，跳过 UI 弹窗（Build:Init 第 101-104 行的版本检查）
+-- 若 XML 的 <Build targetVersion> 不等于 liveTargetVersion("3_0")，
+-- 原版 loadBuildFromXML 会提前 return 并跳过 calcsTab:BuildOutput()，导致 mainOutput 为 nil
+-- 注意：mainObject 是 HeadlessWrapper.lua 的 local，改用全局 main 和 runCallback
+function loadBuildFromXML(xmlText, name)
+  main:SetMode("BUILD", false, name or "", xmlText, true)  -- convertBuild=true
+  runCallback("OnFrame")
+end
+
 -- 导出树节点数据到文件（仅首次运行时）
 local treeDataPath = "../web/tree-data.json"
 local f = io.open(treeDataPath, "r")
@@ -29,7 +38,7 @@ if fileEmpty then
   -- 用一个最小 XML 触发引擎初始化（使 build.spec.tree 可用）
   local minXml = [[<?xml version="1.0" encoding="UTF-8"?>
 <PathOfBuilding>
-  <Build level="1" className="Scion" ascendClassName="None"/>
+  <Build level="1" className="Scion" ascendClassName="None" targetVersion="3_0"/>
   <Skills/><Tree activeSpec="1"><Spec treeVersion="3_21" classId="0" ascendClassId="0" nodes=""/></Tree>
   <Items/><Config/>
 </PathOfBuilding>]]
@@ -311,7 +320,15 @@ while true do
 
     local output = build.calcsTab and build.calcsTab.mainOutput
     if not output then
-      return json.encode({ error = "mainOutput is nil (build calc did not run)" })
+      -- 尝试明确调用 BuildOutput，捕获错误
+      local ok2, err2 = pcall(function() build.calcsTab:BuildOutput() end)
+      if not ok2 then
+        return json.encode({ error = "BuildOutput threw: " .. tostring(err2) })
+      end
+      output = build.calcsTab.mainOutput
+      if not output then
+        return json.encode({ error = "mainOutput still nil after explicit BuildOutput; mainEnv=" .. tostring(build.calcsTab.mainEnv) })
+      end
     end
     local stats = {}
     for _, key in ipairs(EXPORT_STATS) do
