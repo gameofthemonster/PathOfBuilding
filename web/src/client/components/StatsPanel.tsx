@@ -11,6 +11,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import type { BreakdownLine, CalcResult } from "../types";
+import { useI18n } from "../hooks/useI18n";
 
 // 标签来源：PoeCharm2 zh-rCN/BuildDisplayStats.csv
 // 无对应翻译的条目保留英文原文
@@ -78,9 +79,10 @@ interface StatRowProps {
   value: number;
   fmt: string;
   breakdown?: BreakdownLine[];
+  t: (s: string) => string;
 }
 
-function StatRow({ label, value, fmt, breakdown }: StatRowProps) {
+function StatRow({ label, value, fmt, breakdown, t }: StatRowProps) {
   const formatted = formatStat(value, fmt);
 
   if (!breakdown || breakdown.length === 0) {
@@ -109,7 +111,7 @@ function StatRow({ label, value, fmt, breakdown }: StatRowProps) {
         <div className="flex flex-col gap-0.5">
           {breakdown.map((entry, i) => (
             <div key={i} className="text-xs text-muted-foreground font-mono">
-              {entry.label}
+              {t(entry.label)}
             </div>
           ))}
         </div>
@@ -124,9 +126,10 @@ interface StatGroupProps {
   stats: Array<{ key: string; label: string; fmt: string }>;
   data: Record<string, number>;
   breakdown?: Record<string, BreakdownLine[]>;
+  t: (s: string) => string;
 }
 
-function StatGroup({ label, en, stats, data, breakdown }: StatGroupProps) {
+function StatGroup({ label, en, stats, data, breakdown, t }: StatGroupProps) {
   const [open, setOpen] = useState(true);
 
   // 只显示有数据的行
@@ -154,6 +157,7 @@ function StatGroup({ label, en, stats, data, breakdown }: StatGroupProps) {
             value={data[key]}
             fmt={fmt}
             breakdown={breakdown?.[key]}
+            t={t}
           />
         ))}
       </CollapsibleContent>
@@ -166,6 +170,7 @@ interface Props {
 }
 
 export function StatsPanel({ result }: Props) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col gap-2 p-3">
       <div className="text-xs font-semibold uppercase tracking-wide mb-1">
@@ -179,6 +184,7 @@ export function StatsPanel({ result }: Props) {
           stats={group.stats}
           data={result.stats ?? {}}
           breakdown={result.breakdown}
+          t={t}
         />
       ))}
     </div>
