@@ -299,6 +299,20 @@ function ItemDetail({ slotLabel, item, onReplace, t }: ItemDetailProps) {
 
   const mods = item ? parseItemMods(item.rawText) : null;
 
+  const itemLevel = item
+    ? (() => {
+        const m = item.rawText.match(/^Item Level:\s*(\d+)/m);
+        return m ? parseInt(m[1]) : null;
+      })()
+    : null;
+
+  const itemQuality = item
+    ? (() => {
+        const m = item.rawText.match(/^Quality:\s*(\d+)/m);
+        return m ? parseInt(m[1]) : null;
+      })()
+    : null;
+
   return (
     <div className="flex flex-col gap-3 p-4">
       {/* Item header */}
@@ -311,6 +325,20 @@ function ItemDetail({ slotLabel, item, onReplace, t }: ItemDetailProps) {
           </div>
           {item.name && item.base && (
             <div className="text-sm text-muted-foreground">{t(item.base)}</div>
+          )}
+          {(itemLevel !== null || itemQuality !== null) && (
+            <div className="flex gap-3 mt-0.5">
+              {itemLevel !== null && (
+                <span className="text-[11px] text-muted-foreground/70">
+                  物品等级：<span className="text-muted-foreground">{itemLevel}</span>
+                </span>
+              )}
+              {itemQuality !== null && itemQuality > 0 && (
+                <span className="text-[11px] text-muted-foreground/70">
+                  品质：<span className="text-muted-foreground">+{itemQuality}%</span>
+                </span>
+              )}
+            </div>
           )}
         </div>
       ) : (
