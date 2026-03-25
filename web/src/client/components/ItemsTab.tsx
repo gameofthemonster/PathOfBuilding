@@ -107,17 +107,10 @@ const MOD_TYPE_DISPLAY: Record<string, ModTypeInfo> = {
 };
 
 const RARITY_COLORS: Record<string, string> = {
-  UNIQUE: "text-orange-400",
-  RARE: "text-yellow-400",
-  MAGIC: "text-blue-400",
-  NORMAL: "text-gray-200",
-};
-
-const RARITY_MOD_COLORS: Record<string, string> = {
-  UNIQUE: "text-orange-300/90",
-  RARE: "text-sky-300/90",
-  MAGIC: "text-blue-300/90",
-  NORMAL: "text-gray-300/80",
+  UNIQUE: "text-[#AF6026]",
+  RARE: "text-[#FFFF77]",
+  MAGIC: "text-indigo-400",
+  NORMAL: "text-white",
 };
 
 function decodeEntities(s: string): string {
@@ -305,9 +298,6 @@ function ItemDetail({ slotLabel, item, onReplace, t }: ItemDetailProps) {
   }
 
   const mods = item ? parseItemMods(item.rawText) : null;
-  const modColor = item
-    ? (RARITY_MOD_COLORS[item.rarity] ?? "text-muted-foreground")
-    : "";
 
   return (
     <div className="flex flex-col gap-3 p-4">
