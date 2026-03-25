@@ -1,9 +1,10 @@
 export interface DisplayStat {
-  stat: string
-  label: string
-  value: string
-  warn: boolean
-  category: string
+  stat?: string        // undefined → separator entry
+  label?: string
+  value?: number       // raw number after pc/mod transform
+  fmt?: string         // Lua format spec: "d", ".1f", "d%%", ".2f%%", ".2fs", etc.
+  color?: string       // hex color without # (e.g. "E05030")
+  separator?: boolean
 }
 
 // A single line in a stat breakdown.
@@ -31,6 +32,28 @@ export interface ClusterNode {
   icon?: string
 }
 
+// Pre-rendered Calcs tab row from Lua CalcSections
+export interface CalcRow {
+  label: string        // row label (English, from CalcSections.lua)
+  value: string        // pre-formatted value string, e.g. "12,345" / "75.4%" / "1,234 – 5,678"
+  breakdownKey?: string  // if present, used for hover popover
+  hidden: boolean      // true when condition not met (structure kept, frontend filters)
+}
+
+export interface CalcSubsection {
+  label: string        // subsection label
+  rows: CalcRow[]
+}
+
+export interface CalcSection {
+  id: string           // section id, e.g. "HitDamage"
+  label: string        // section label (English)
+  color?: string       // title color hex (from CalcSections colorCode, e.g. "E05030")
+  defaultCollapsed: boolean
+  column: "left-a" | "left-b" | "right"  // three-column assignment
+  subsections: CalcSubsection[]
+}
+
 export interface CalcResult {
   stats: Record<string, number>
   warnings: string[]
@@ -44,6 +67,8 @@ export interface CalcResult {
   skillPartGemIndex?: number
   // Cluster jewel subgraph nodes for passive tree rendering
   clusterNodes?: ClusterNode[]
+  // Pre-rendered Calcs tab section tree from Lua (matches CalcSections.lua structure)
+  calcSections?: CalcSection[]
 }
 
 export interface SocketGroup {
