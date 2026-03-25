@@ -29,8 +29,9 @@ export default function App() {
 
   const { loading: recalcLoading, error: recalcError, recalculate } = useRecalculate(
     sessionId,
-    (result) => {
+    (result, buildConfig) => {
       setCurrentResult(result)
+      if (buildConfig) setCurrentBuildConfig(buildConfig)
       setPendingPatch(null)
     }
   )

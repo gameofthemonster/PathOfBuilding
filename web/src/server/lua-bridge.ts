@@ -1,5 +1,6 @@
 import { type Subprocess } from "bun"
 import path from "path"
+import type { BuildConfig } from "../client/types"
 
 const REPO_ROOT = path.resolve(import.meta.dir, "../../..")
 
@@ -8,6 +9,7 @@ export interface LuaResult {
   warnings: string[]
   error?: string
   breakdown?: Record<string, Array<{ label: string }>>
+  buildConfig?: BuildConfig
 }
 
 /**

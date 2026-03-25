@@ -1,5 +1,5 @@
 import { useState } from "react"
-import type { CalcResult } from "../types"
+import type { BuildConfig, CalcResult } from "../types"
 
 export interface BuildPatch {
   items?: {
@@ -25,7 +25,7 @@ interface RecalcState {
 
 export function useRecalculate(
   sessionId: string | null,
-  onResult: (result: CalcResult) => void
+  onResult: (result: CalcResult, buildConfig?: BuildConfig) => void
 ) {
   const [state, setState] = useState<RecalcState>({ loading: false, error: null })
 
@@ -43,7 +43,7 @@ export function useRecalculate(
         throw new Error(err.error ?? "Recalculate failed")
       }
       const data = await res.json()
-      onResult(data.result)
+      onResult(data.result, data.buildConfig)
       setState({ loading: false, error: null })
     } catch (e) {
       setState({ loading: false, error: String(e) })

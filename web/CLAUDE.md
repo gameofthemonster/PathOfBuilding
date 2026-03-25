@@ -110,6 +110,10 @@ bun --hot ./index.ts
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
 
+## 修改范围规则
+
+**只改 `web/` 目录内的文件。** 不得修改上层目录（`../` 以外、`../src/`、`../lua/` 等）的任何文件。所有逻辑（包括 Lua 计算侧）都在 `web/lua/` 下实现。
+
 ## UI 双语标签约定
 
 所有面板标题和 Tab 标签都采用「中文 + 英文」双语格式，英文部分使用 `text-muted-foreground/50` + `text-xs`（或更小），英文名称与 POB 原版保持一致：

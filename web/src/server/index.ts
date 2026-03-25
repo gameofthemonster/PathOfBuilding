@@ -198,13 +198,6 @@ async function handleCalculate(req: Request): Promise<Response> {
     return jsonResponse({ error: `Failed to decode build string: ${String(err)}` }, 400)
   }
 
-  let buildConfig
-  try {
-    buildConfig = parseBuildXml(xml)
-  } catch (err) {
-    return jsonResponse({ error: `Failed to parse XML: ${String(err)}` }, 400)
-  }
-
   let result
   try {
     result = await pool.calculate(xml)
@@ -219,6 +212,8 @@ async function handleCalculate(req: Request): Promise<Response> {
   const sessionId = randomUUID()
   sessions.set(sessionId, xml)
 
+  // 优先使用 Lua 返回的 buildConfig；若缺失则回退到 TypeScript 解析
+  const buildConfig = result.buildConfig ?? parseBuildXml(xml)
   return jsonResponse({ sessionId, buildConfig, result }, 200)
 }
 
@@ -261,7 +256,8 @@ async function handleRecalculate(req: Request): Promise<Response> {
     return jsonResponse({ error: `Recalculation failed: ${result.error}` }, 500)
   }
 
-  return jsonResponse({ result }, 200)
+  const buildConfigForResponse = result.buildConfig ?? parseBuildXml(xml)
+  return jsonResponse({ result, buildConfig: buildConfigForResponse }, 200)
 }
 
 async function handleI18n(): Promise<Response> {
