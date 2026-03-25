@@ -402,7 +402,7 @@ function ItemDetail({ slotLabel, item, onReplace, t }: ItemDetailProps) {
               const typeInfo = specialTag ? MOD_TYPE_DISPLAY[specialTag] : undefined;
               const textColor = typeInfo?.textColor ?? "text-indigo-400";
               return (
-                <div key={`imp-${i}`} className="flex items-baseline justify-between gap-1.5 leading-snug">
+                <div key={`imp-${i}`} className="flex items-baseline gap-3 leading-snug">
                   <span className={`text-xs ${textColor}`}>{t(mod.text)}</span>
                   {typeInfo && (
                     <span className={`text-[9px] font-medium shrink-0 border rounded px-1 leading-tight ${typeInfo.labelColor} border-current/40`}>
@@ -431,7 +431,7 @@ function ItemDetail({ slotLabel, item, onReplace, t }: ItemDetailProps) {
                     ? "text-pink-300/90"
                     : "text-indigo-400");
               return (
-                <div key={`exp-${i}`} className="flex items-baseline justify-between gap-1.5 leading-snug">
+                <div key={`exp-${i}`} className="flex items-baseline gap-3 leading-snug">
                   <span className={`text-xs ${textColor}`}>{t(mod.text)}</span>
                   {label && (
                     <span className={`text-[9px] font-medium shrink-0 border rounded px-1 leading-tight ${labelColor} border-current/40`}>
