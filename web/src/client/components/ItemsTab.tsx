@@ -380,7 +380,7 @@ function ItemDetail({ slotLabel, item, onReplace, t }: ItemDetailProps) {
                   ? "text-blue-300/90"
                   : mod.posLabel === "后缀"
                     ? "text-pink-300/90"
-                    : "text-muted-foreground/70");
+                    : "text-blue-300/90");
               return (
                 <div
                   key={`exp-${i}`}
