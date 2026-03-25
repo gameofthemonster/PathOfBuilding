@@ -155,22 +155,22 @@ function M.renderCalcSections(output)
     local totalMin = get(output, "TotalMin")
     local totalMax = get(output, "TotalMax")
     table.insert(rows, row("Hit Damage (Total)", fmt_range(totalMin, totalMax), "Physical", have(output, "TotalMin")))
-    table.insert(rows, row("Physical", fmt_range(get(output,"PhysicalMin"), get(output,"PhysicalMax")), "Physical", have(output,"PhysicalMin")))
-    table.insert(rows, row("Lightning", fmt_range(get(output,"LightningMin"), get(output,"LightningMax")), "Lightning", have(output,"LightningMin")))
-    table.insert(rows, row("Cold", fmt_range(get(output,"ColdMin"), get(output,"ColdMax")), "Cold", have(output,"ColdMin")))
-    table.insert(rows, row("Fire", fmt_range(get(output,"FireMin"), get(output,"FireMax")), "Fire", have(output,"FireMin")))
-    table.insert(rows, row("Chaos", fmt_range(get(output,"ChaosMin"), get(output,"ChaosMax")), "Chaos", have(output,"ChaosMin")))
+    table.insert(rows, row("Physical", fmt_range(get(output,"PhysicalMin"), get(output,"PhysicalMax")), "Physical", have(output,"PhysicalMax")))
+    table.insert(rows, row("Lightning", fmt_range(get(output,"LightningMin"), get(output,"LightningMax")), "Lightning", have(output,"LightningMax")))
+    table.insert(rows, row("Cold", fmt_range(get(output,"ColdMin"), get(output,"ColdMax")), "Cold", have(output,"ColdMax")))
+    table.insert(rows, row("Fire", fmt_range(get(output,"FireMin"), get(output,"FireMax")), "Fire", have(output,"FireMax")))
+    table.insert(rows, row("Chaos", fmt_range(get(output,"ChaosMin"), get(output,"ChaosMax")), "Chaos", have(output,"ChaosMax")))
     table.insert(rows, row("Average Hit", fmt_int(get(output,"AverageHit")), "AverageHit", have(output,"AverageHit")))
     table.insert(rows, row("Average Damage", fmt_int(get(output,"AverageDamage")), "AverageDamage", have(output,"AverageDamage")))
     -- Main hand
     local mhMin = get(output,"MainHand.TotalMin")
     local mhMax = get(output,"MainHand.TotalMax")
-    table.insert(rows, row("MH Hit Damage", fmt_range(mhMin, mhMax), nil, have(output,"MainHand.TotalMin")))
+    table.insert(rows, row("MH Hit Damage", fmt_range(mhMin, mhMax), nil, have(output,"MainHand.TotalMax")))
     table.insert(rows, row("MH Average Hit", fmt_int(get(output,"MainHand.AverageHit")), "MainHand.AverageHit", have(output,"MainHand.AverageHit")))
     -- Off hand
     local ohMin = get(output,"OffHand.TotalMin")
     local ohMax = get(output,"OffHand.TotalMax")
-    table.insert(rows, row("OH Hit Damage", fmt_range(ohMin, ohMax), nil, have(output,"OffHand.TotalMin")))
+    table.insert(rows, row("OH Hit Damage", fmt_range(ohMin, ohMax), nil, have(output,"OffHand.TotalMax")))
     table.insert(rows, row("OH Average Hit", fmt_int(get(output,"OffHand.AverageHit")), "OffHand.AverageHit", have(output,"OffHand.AverageHit")))
 
     table.insert(sections, make_section("HitDamage", "Hit Damage Range", COL_OFFENCE, false, "left-a", {
@@ -691,7 +691,7 @@ function M.renderCalcSections(output)
     local fortRows = {}
     table.insert(fortRows, row("Max Stacks", tostring(math.floor(get(output,"MaximumFortification")+0.5)), "MaximumFortification", have(output,"MaximumFortification")))
     table.insert(fortRows, row("Duration", fmt_dec2(get(output,"FortifyDuration")) .. "s", "FortifyDuration", have(output,"FortifyDuration")))
-    table.insert(fortRows, row("Less Dmg Taken", tostring(getv(output,"FortificationEffect") or "0") .. "%", "FortificationEffect", have(output,"FortificationEffect")))
+    table.insert(fortRows, row("Less Dmg Taken", fmt_pct_int(get(output,"FortificationEffect")), "FortificationEffect", have(output,"FortificationEffect")))
 
     table.insert(sections, make_section("MiscDefences", "Other Defences", COL_DEFENCE, false, "right", {
       make_subsection("Other Defences", mainRows),
