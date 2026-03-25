@@ -43,6 +43,22 @@ async function getTreeDataCached(): Promise<unknown[]> {
   return []
 }
 
+// Sprite 贴图坐标缓存
+let spritesCache: unknown | null = null
+
+async function getSpritesCached(): Promise<unknown> {
+  if (spritesCache) return spritesCache
+  const path = join(REPO_ROOT, "web/sprites.json")
+  const file = Bun.file(path)
+  if (await file.exists()) {
+    const data = await file.json() as Record<string, unknown>
+    // Only cache if data is non-empty (Lua worker may still be initializing)
+    if (Object.keys(data).length > 0) spritesCache = data
+    return data
+  }
+  return {}
+}
+
 process.on("SIGINT", () => {
   console.log("\n[Server] Shutting down...")
   viteProc.kill()
@@ -64,6 +80,7 @@ pool.warmup().then(() => {
       "/api/calculate": { POST: handleCalculate },
       "/api/recalculate": { POST: handleRecalculate },
       "/api/tree-data": { GET: async () => jsonResponse(await getTreeDataCached(), 200) },
+      "/api/sprites": { GET: async () => jsonResponse(await getSpritesCached(), 200) },
       "/api/i18n": { GET: handleI18n },
     },
     fetch() {

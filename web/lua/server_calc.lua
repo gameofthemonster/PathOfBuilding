@@ -58,6 +58,11 @@ if fileEmpty then
             end
           end
         end
+        -- Extract bare filename from icon path (e.g. "Art/.../passives/Foo.png" → "Foo")
+        local iconFile = nil
+        if node.icon then
+          iconFile = tostring(node.icon):match("([^/]+)%.%a+$")
+        end
         table.insert(nodes, {
           id = node.id or id,
           name = node.name or "",
@@ -67,6 +72,7 @@ if fileEmpty then
           mods = rawMods,
           ascendancyName = node.ascendancyName,
           out = outIds,
+          icon = iconFile,
         })
       end
     end
@@ -81,6 +87,57 @@ if fileEmpty then
   end
 else
   io.stderr:write("[server_calc] tree-data.json already exists, skipping\n")
+end
+
+-- 导出 sprite 贴图数据（仅首次）
+local spritesJsonPath = "../web/sprites.json"
+local sf = io.open(spritesJsonPath, "r")
+local spritesEmpty = sf == nil or sf:read(1) == nil
+if sf then sf:close() end
+if spritesEmpty then
+  local ok_s, spritesLua = pcall(dofile, "TreeData/3_28/sprites.lua")
+  if ok_s and spritesLua and spritesLua.sprites then
+    local iconInactive = {}
+    local iconActive   = {}
+    local frames       = {}
+    for _, catName in ipairs({"normalInactive", "notableInactive", "keystoneInactive", "masteryInactive"}) do
+      local cat = spritesLua.sprites[catName]
+      if cat and cat.coords then
+        local url = cat.filename
+        for iconPath, coord in pairs(cat.coords) do
+          local name = iconPath:match("([^/]+)%.%a+$") or iconPath
+          iconInactive[name] = {url=url, x=coord.x, y=coord.y, w=coord.w, h=coord.h}
+        end
+      end
+    end
+    for _, catName in ipairs({"normalActive", "notableActive", "keystoneActive"}) do
+      local cat = spritesLua.sprites[catName]
+      if cat and cat.coords then
+        local url = cat.filename
+        for iconPath, coord in pairs(cat.coords) do
+          local name = iconPath:match("([^/]+)%.%a+$") or iconPath
+          iconActive[name] = {url=url, x=coord.x, y=coord.y, w=coord.w, h=coord.h}
+        end
+      end
+    end
+    local frameCat = spritesLua.sprites.frame
+    if frameCat and frameCat.coords then
+      local url = frameCat.filename
+      for frameName, coord in pairs(frameCat.coords) do
+        frames[frameName] = {url=url, x=coord.x, y=coord.y, w=coord.w, h=coord.h}
+      end
+    end
+    local spritesOut = io.open(spritesJsonPath, "w")
+    if spritesOut then
+      spritesOut:write(json.encode({inactive=iconInactive, active=iconActive, frames=frames}))
+      spritesOut:close()
+      io.stderr:write("[server_calc] sprites.json written\n")
+    end
+  else
+    io.stderr:write("[server_calc] sprites load failed\n")
+  end
+else
+  io.stderr:write("[server_calc] sprites.json already exists, skipping\n")
 end
 
 -- stat key 白名单（只序列化数值字段，避免函数引用等无法 JSON 化的值）
@@ -157,6 +214,81 @@ local EXPORT_STATS = {
   "AuraDuration", "AuraEffectMod", "CurseEffectMod",
   "Rage", "Spec:LifeInc", "Spec:EnergyShieldInc", "Spec:ManaInc",
   "Spec:ArmourInc", "Spec:EvasionInc",
+  -- Leech max rates & on-hit/kill
+  "MaxLifeLeechRate", "LifeLeechRate", "LifeOnHit", "LifeOnKill",
+  "MaxManaLeechRate", "ManaLeechRate", "ManaOnHit", "ManaOnKill",
+  "MaxEnergyShieldLeechRate", "EnergyShieldLeechRate", "EnergyShieldOnHit", "EnergyShieldOnKill",
+  -- Elemental ailment effects
+  "ScorchChance", "ScorchEffectMod",
+  "ChillEffectMod", "BrittleChance", "BrittleEffectMod",
+  "ShockEffectMod", "SapChance", "SapEffectMod",
+  -- Misc offence
+  "KnockbackChance", "CullPercent",
+  -- Flask subtypes
+  "FlaskChargeOnCritChance", "UtilityFlaskChargeGen", "LifeFlaskChargeGen", "ManaFlaskChargeGen",
+  -- Charge durations
+  "EnduranceChargesDuration", "FrenzyChargesDuration", "PowerChargesDuration",
+  -- Fortification detail
+  "MinimumFortification", "FortifyDuration", "FortificationEffect",
+  -- Stun & blind avoidance
+  "StunAvoidChance", "StunThreshold", "StunDuration",
+  "BlindAvoidChance", "CritExtraDamageReduction",
+  -- Ailment avoidance
+  "ShockAvoidChance", "FreezeAvoidChance", "ChillAvoidChance",
+  "IgniteAvoidChance", "BleedAvoidChance", "PoisonAvoidChance", "CurseAvoidChance",
+  -- Self ailment duration/effect
+  "SelfFreezeDuration", "SelfChillDuration", "SelfShockDuration", "SelfIgniteDuration",
+  "SelfBleedDuration", "SelfPoisonDuration",
+  "SelfFreezeEffect", "SelfChillEffect", "SelfShockEffect", "SelfIgniteEffect",
+  -- Damage Taken (from enemy)
+  "totalEnemyDamage", "PhysicalEnemyDamage", "LightningEnemyDamage",
+  "ColdEnemyDamage", "FireEnemyDamage", "ChaosEnemyDamage",
+  "totalTakenDamage", "PhysicalTakenDamage", "LightningTakenDamage",
+  "ColdTakenDamage", "FireTakenDamage", "ChaosTakenDamage",
+  -- Damaging Hits
+  "PhysicalTakenHitMult", "LightningTakenHitMult", "ColdTakenHitMult",
+  "FireTakenHitMult", "ChaosTakenHitMult",
+  "totalTakenHit", "PhysicalTakenHit", "LightningTakenHit",
+  "ColdTakenHit", "FireTakenHit", "ChaosTakenHit",
+  -- EHP details
+  "NumberOfDamagingHits", "TotalNumberOfHits", "EHPSurvivalTime",
+  "ConfiguredDamageChance", "ConfiguredNotHitChance",
+  -- Recoup
+  "LifeRecoupRecoveryMax", "LifeRecoupRecoveryAvg",
+  "ManaRecoupRecoveryMax", "ManaRecoupRecoveryAvg",
+  "EnergyShieldRecoupRecoveryMax", "EnergyShieldRecoupRecoveryAvg",
+  "LifeRecoup", "ManaRecoup", "EnergyShieldRecoup",
+  -- Resource reserved/recharge
+  "LifeReserved", "ManaReserved",
+  "EnergyShieldRecharge", "WardRechargeDelay",
+  -- Evasion/block overcap
+  "EvadeChance", "BlockChanceOverCap", "SpellBlockChanceOverCap",
+  "SpellSuppressionEffect",
+  -- Armour elemental reductions
+  "FireDamageReduction", "ColdDamageReduction",
+  "LightningDamageReduction", "ChaosDamageReduction",
+  -- Per-element DoT DPS (Skill Damage over Time section)
+  "PhysicalDot", "LightningDot", "ColdDot", "FireDot", "ChaosDot", "TotalDotInstance",
+  -- Enemy Degens
+  "PhysicalEnemyDegen", "LightningEnemyDegen", "ColdEnemyDegen", "FireEnemyDegen", "ChaosEnemyDegen", "TotalDegen",
+  "ComprehensiveTotalNetRegen", "ComprehensiveNetLifeRegen", "ComprehensiveNetManaRegen", "ComprehensiveNetEnergyShieldRegen",
+  -- Build Degens (Dots & Build Degens section)
+  "PhysicalBuildDegen", "LightningBuildDegen", "ColdBuildDegen", "FireBuildDegen", "ChaosBuildDegen",
+  -- Dot taken multipliers
+  "PhysicalTakenDotMult", "LightningTakenDotMult", "ColdTakenDotMult", "FireTakenDotMult", "ChaosTakenDotMult",
+  -- Per-element pool & EHP for DoTs
+  "PhysicalTotalPool", "LightningTotalPool", "ColdTotalPool", "FireTotalPool", "ChaosTotalPool",
+  "PhysicalDotEHP", "LightningDotEHP", "ColdDotEHP", "FireDotEHP", "ChaosDotEHP",
+  -- Hit Taken Over Time (Recoup section)
+  "LifeLossLostMax", "LifeLossLostAvg", "netLifeRecoupAndLossLostOverTimeMax", "netLifeRecoupAndLossLostOverTimeAvg",
+  -- Tinctures
+  "TinctureEffect", "TinctureLimit",
+  -- Skill type-specific Stats
+  "GemLevel", "GemQuality", "StoredUses",
+  "DurationUptime", "DurationSecondaryUptime", "AuraDurationUptime",
+  "ManaReservedMod", "LifeReservedMod", "HeraldBuffEffectMod", "SustainableTrauma",
+  -- Rage details
+  "RageEffect", "MaximumRage", "RageRegenRecovery", "InherentRageLoss", "InherentRageLossDelay",
 }
 
 -- 长度前缀协议循环：读 XML → 计算 → 输出 JSON
