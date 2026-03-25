@@ -81,8 +81,8 @@ const MOD_TYPE_DISPLAY: Record<string, ModTypeInfo> = {
   },
   fractured: {
     label: "分裂",
-    textColor: "text-yellow-600/90",
-    labelColor: "text-yellow-700/80",
+    textColor: "text-[#A08F5F]",
+    labelColor: "text-[#A08F5F]/80",
   },
   scourge: {
     label: "天灾",
