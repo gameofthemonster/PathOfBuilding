@@ -1,18 +1,20 @@
 import type { BuildConfig, GemInstance } from "../types";
 import { Input } from "@/components/ui/input";
+import { useI18n } from "../hooks/useI18n";
 
 interface GemRowProps {
   gem: GemInstance;
+  t: (s: string) => string;
   onChange: (updated: Partial<GemInstance>) => void;
 }
 
-function GemRow({ gem, onChange }: GemRowProps) {
+function GemRow({ gem, t, onChange }: GemRowProps) {
   const isSupport = gem.skillId.includes("Support");
   const nameColor = isSupport ? "text-blue-400" : "text-orange-400";
   return (
     <div className="flex items-center gap-2 px-3 py-1 hover:bg-muted/20">
       <span className={`text-xs flex-1 min-w-0 truncate ${nameColor}`}>
-        {gem.nameSpec || gem.skillId}
+        {t(gem.nameSpec || gem.skillId)}
       </span>
       <div className="flex items-center gap-1 shrink-0">
         <span className="text-xs text-muted-foreground">等级</span>
@@ -54,6 +56,8 @@ interface Props {
 }
 
 export function SkillsTab({ buildConfig, onSkillChange }: Props) {
+  const { t } = useI18n();
+
   return (
     <div className="flex flex-col max-w-xl">
       {buildConfig.skills.length === 0 && (
@@ -64,10 +68,10 @@ export function SkillsTab({ buildConfig, onSkillChange }: Props) {
       {buildConfig.skills.map((group, gi) => (
         <div key={gi} className="border-t border-border/40 first:border-t-0">
           <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/30 border-b border-border/40 flex items-center gap-2">
-            <span>{group.label || group.slot || `组 ${gi + 1}`}</span>
+            <span>{t(group.label) || t(group.slot) || `组 ${gi + 1}`}</span>
             {group.slot && group.label && (
               <span className="text-[10px] text-muted-foreground/50 normal-case tracking-normal font-normal">
-                {group.slot}
+                {t(group.slot)}
               </span>
             )}
           </div>
@@ -75,6 +79,7 @@ export function SkillsTab({ buildConfig, onSkillChange }: Props) {
             <GemRow
               key={ji}
               gem={gem}
+              t={t}
               onChange={(updated) => onSkillChange(gi, ji, updated)}
             />
           ))}
