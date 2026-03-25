@@ -21,7 +21,7 @@ end
 dofile("HeadlessWrapper.lua")
 
 -- Load CalcSections pre-renderer module
-local calcSectionsRenderer = dofile("calc_sections_renderer.lua")
+local calcSectionsRenderer = dofile("../web/lua/calc_sections_renderer.lua")
 
 -- Headless override: 自动接受版本转换，跳过 UI 弹窗（Build:Init 第 101-104 行的版本检查）
 -- 若 XML 的 <Build targetVersion> 不等于 liveTargetVersion("3_0")，
@@ -30,6 +30,17 @@ local calcSectionsRenderer = dofile("calc_sections_renderer.lua")
 function loadBuildFromXML(xmlText, name)
   main:SetMode("BUILD", false, name or "", xmlText, true)  -- convertBuild=true
   runCallback("OnFrame")
+end
+
+-- 将 XML 中未知的 treeVersion 替换为 latestTreeVersion，
+-- 避免 TreeTab.lua 第 505 行的 early-return（会导致 specList 为空、被动树节点不加载）
+local function sanitizeTreeVersion(xmlText)
+  return (xmlText:gsub('treeVersion="([^"]*)"', function(ver)
+    if not treeVersions[ver] then
+      io.stderr:write("[server_calc] unknown treeVersion=" .. ver .. ", replacing with " .. latestTreeVersion .. "\n")
+      return 'treeVersion="' .. latestTreeVersion .. '"'
+    end
+  end))
 end
 
 -- 导出树节点数据到文件（仅首次运行时）
@@ -505,12 +516,7 @@ while true do
   local xml = io.read(len)
   if not xml then break end
 
-  -- 诊断：打印 XML 中 nodes 属性的前 80 个字符（只看第一个 <Spec nodes=...>）
-  do
-    local nodesVal = xml:match('nodes="([^"]*)"')
-    io.stderr:write(string.format("[DBG] XML nodes attr: %s\n",
-      nodesVal and ("len=" .. #nodesVal .. " preview=" .. nodesVal:sub(1,60)) or "NOT FOUND"))
-  end
+  xml = sanitizeTreeVersion(xml)
 
   local ok, result = pcall(function()
     local loadOk, loadErr = pcall(function()
@@ -744,7 +750,7 @@ while true do
     if build.spec then
       for _, node in pairs(build.spec.nodes or {}) do
         local nid = tonumber(node.id) or 0
-        local isClusterSocket = nid < 0x10000 and node.expansionJewel and node.type == "Socket"
+        local isClusterSocket = nid < 0x10000 and node.expansionJewel and node.expansionJewel.parent and node.type == "Socket"
         if (nid >= 0x10000 or isClusterSocket) and node.x and node.y then
           local rawMods = {}
           if type(node.sd) == "table" then
@@ -865,6 +871,100 @@ while true do
       end
     end
 
+    -- 序列化 buildConfig（由 Lua 权威解析，替代 TypeScript xml-parser.ts）
+    local bcSkills = {}
+    if build.skillsTab and build.skillsTab.socketGroupList then
+      for _, grp in ipairs(build.skillsTab.socketGroupList) do
+        local bcGems = {}
+        for _, gem in ipairs(grp.gemList or {}) do
+          table.insert(bcGems, {
+            skillId   = gem.skillId or "",
+            gemId     = gem.gemId or "",
+            nameSpec  = gem.nameSpec or "",
+            level     = gem.level or 20,
+            quality   = gem.quality or 0,
+            qualityId = type(gem.qualityId) == "string" and gem.qualityId or "Default",
+            enabled   = gem.enabled ~= false,
+          })
+        end
+        table.insert(bcSkills, {
+          enabled         = grp.enabled ~= false,
+          label           = grp.label or "",
+          slot            = grp.slot or "",
+          mainActiveSkill = grp.mainActiveSkill or 1,
+          gems            = bcGems,
+        })
+      end
+    end
+
+    local bcItemList = {}
+    local bcSlots    = {}
+    if build.itemsTab then
+      if build.itemsTab.items then
+        for _, item in pairs(build.itemsTab.items) do
+          if type(item) == "table" and item.id and item.id > 0 then
+            table.insert(bcItemList, {
+              id      = item.id,
+              rawText = item.raw or "",
+              name    = item.name or "",
+              base    = item.baseName or "",
+              rarity  = item.rarity or "NORMAL",
+            })
+          end
+        end
+      end
+      if build.itemsTab.activeItemSet then
+        for slotName, slot in pairs(build.itemsTab.activeItemSet) do
+          if type(slot) == "table" and slot.selItemId and slot.selItemId > 0 then
+            bcSlots[slotName] = slot.selItemId
+          end
+        end
+      end
+    end
+
+    local bcAllocNodes = {}
+    local bcJewels     = {}
+    if build.spec then
+      for nodeId, val in pairs(build.spec.allocNodes or {}) do
+        if val then table.insert(bcAllocNodes, tonumber(nodeId) or 0) end
+      end
+      if build.spec.jewels then
+        for nodeId, itemId in pairs(build.spec.jewels) do
+          bcJewels[tostring(nodeId)] = itemId
+        end
+      end
+    end
+
+    local bcConfig = {}
+    if build.calcsTab and build.calcsTab.input then
+      for k, v in pairs(build.calcsTab.input) do
+        local vt = type(v)
+        if vt == "boolean" or vt == "number" or vt == "string" then
+          bcConfig[k] = v
+        end
+      end
+    end
+
+    local buildConfigResult = {
+      level            = build.characterLevel or 1,
+      className        = (build.spec and build.spec.curClassName)       or "Scion",
+      ascendClassName  = (build.spec and build.spec.curAscendClassName) or "None",
+      mainSocketGroup  = build.mainSocketGroup or 1,
+      skills           = bcSkills,
+      tree = {
+        treeVersion   = (build.spec and build.spec.treeVersion)      or "3_28",
+        classId       = (build.spec and build.spec.curClassId)       or 0,
+        ascendClassId = (build.spec and build.spec.curAscendClassId) or 0,
+        allocNodes    = bcAllocNodes,
+        jewels        = next(bcJewels) and bcJewels or nil,
+      },
+      items = {
+        itemList = bcItemList,
+        slots    = bcSlots,
+      },
+      config = bcConfig,
+    }
+
     return json.encode({
       stats = stats, warnings = warnings, breakdown = breakdown,
       displayStats = displayStatsResult,
@@ -872,6 +972,7 @@ while true do
       skillPartGemGroupIndex = skillPartGemGroupIndex, skillPartGemIndex = skillPartGemIndex,
       clusterNodes = clusterNodes,
       calcSections = calcSections,
+      buildConfig  = buildConfigResult,
     })
   end)
 
