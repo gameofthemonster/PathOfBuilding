@@ -23,12 +23,35 @@ export function useI18n() {
   }, [])
 
   function t(key: string, ...args: (string | number)[]): string {
-    let text = map.get(key) ?? key
-    for (let i = 0; i < args.length; i++) {
-      text = text.replace(`{${i}}`, String(args[i]))
+    let text = map.get(key)
+    let effectiveArgs: (string | number)[] = args
+
+    // 直接查找失败且调用方没有传入显式参数时，尝试数字归一化查找
+    if (text === undefined && args.length === 0) {
+      const nums: string[] = []
+      let idx = 0
+      const normalized = key.replace(/[+-]?\d+(?:\.\d+)?/g, (m) => {
+        nums.push(m)
+        return `{${idx++}}`
+      })
+      if (nums.length > 0) {
+        const template = map.get(normalized)
+        if (template) {
+          text = template
+          effectiveArgs = nums
+        }
+      }
     }
-    // 去掉 POB 颜色代码 ^xRRGGBB
-    text = text.replace(/\^x[0-9A-Fa-f]{6}/g, "")
+
+    if (text === undefined) text = key
+
+    // 把参数注入翻译模板中的 {N} 占位符
+    for (let i = 0; i < effectiveArgs.length; i++) {
+      text = text.replace(`{${i}}`, String(effectiveArgs[i]))
+    }
+
+    // 去掉 POB 颜色代码 ^xRRGGBB 和 ^N
+    text = text.replace(/\^x[0-9A-Fa-f]{6}/g, "").replace(/\^\d/g, "")
     return text
   }
 
