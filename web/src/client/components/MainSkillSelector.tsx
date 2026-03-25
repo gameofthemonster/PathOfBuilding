@@ -6,6 +6,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { SocketGroup } from "../types"
+import { useI18n } from "../hooks/useI18n"
 
 interface Props {
   skills: SocketGroup[]
@@ -14,19 +15,18 @@ interface Props {
 }
 
 export function MainSkillSelector({ skills, mainSocketGroup, onChange }: Props) {
-  // 过滤有效的技能组（有技能且启用）
+  const { t } = useI18n()
+
   const enabledGroups = skills
-    .map((group, i) => ({ group, index: i + 1 }))  // POB 的 mainSocketGroup 从 1 开始
+    .map((group, i) => ({ group, index: i + 1 }))
     .filter(({ group }) => group.gems.length > 0)
 
   if (enabledGroups.length === 0) return null
 
-  // 获取技能组的显示标签
   function getGroupLabel(group: SocketGroup, index: number): string {
-    // 优先用主动技能名称
     const activeGem = group.gems.find(g => !g.skillId.includes("Support"))
-    const gemName = activeGem?.nameSpec || activeGem?.skillId || ""
-    return group.label || gemName || group.slot || `技能组 ${index}`
+    const gemName = activeGem ? t(activeGem.nameSpec || activeGem.skillId) : ""
+    return (group.label ? t(group.label) : "") || gemName || (group.slot ? t(group.slot) : "") || `技能组 ${index}`
   }
 
   return (
