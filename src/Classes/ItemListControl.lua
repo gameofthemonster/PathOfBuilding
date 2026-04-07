@@ -125,7 +125,13 @@ function ItemListClass:GetRowValue(column, index, itemId)
 		else
 			used = "  ^9(Used in '" .. used .. "')"
 		end
-		return colorCodes[item.rarity] .. item.name .. used
+		local displayName
+		if item.title and item.baseName then
+			displayName = Translation.get(item.title) .. ", " .. Translation.get(item.baseName:gsub(" %(.+%)",""))
+		else
+			displayName = Translation.get(item.name)
+		end
+		return colorCodes[item.rarity] .. displayName .. used
 	end
 end
 

@@ -1,0 +1,65 @@
+Failed to Get PoE League List response,获取联盟列表回应失败
+
+PoE Ninja Rate Limit Exceeded: {0},达到PoE Ninja速率限制: {0}
+Failed to Get PoE Ninja response,获取PoE Ninja回应失败
+
+
+
+Get Currency Conversion Rates,获取通货兑换比率
+Trader,交易器
+
+Update Currency Conversion Rates,升级通货兑换比率
+Currency Rates are not available,通货兑换比率不可用
+Currency Conversion rates are pulled from PoE Ninja,通货兑换比率拉取自PoE Ninja
+The data is only available for the PC realm.,此数据仅PC版可用
+Currency Rates are very recent,通货兑换比率是绝对最新的
+Currency Rates are recent,通货兑换比率是近期的
+Updates are limited to once per hour and not necessary more than once per day,升级被限制为每小时最多一次，每天没必要多次进行
+Conversion Rates are less than an hour old ({0} seconds old),通货兑换比率过时不超过一小时(过时{0}秒)
+
+No Matching Results,无匹配结果
+
+"Price sorting is not available, falling back to Stat Value sort.",价格排序不可用，回落到统计值排序。
+
+Find best,寻找最佳
+trade/search,交易/搜索
+Searching...,搜索中……
+Price Item,给物品定价
+Creates a weighted search to find the highest Stat Value items for this slot.,创建一个加权搜索以查找此槽的最高统计值项。
+Paste trade URL here...,粘贴交易URL至此……
+Control + click to open in web-browser,Control + click以在浏览器中打开
+You must set your POESESSID to use search feature,你必须设置poessid以使用搜索功能
+Enter a valid trade URL,输入一个有效的URL
+^2Session Mode,^2会话模式
+No Session Mode,无会话模式
+Enter your session ID here,在此输入您的会话ID
+"You can get this from your web browser's cookies while logged into the Path of Exile website.","您可以在登录流放之路官网时从浏览器的Cookies中获取此ID。"
+Change session ID,更改会话ID
+Fetch Pages,获取页数
+Specify maximum number of item pages to retrieve per search from PoE Trade.,指定每次从PoE交易网站搜索时最多获取的物品页数。
+Each page fetches up to 10 items.,每页最多获取10个物品。
+Acceptable Range is: 1 to 10,可接受范围: 1到10
+^7Adjust search weights,^7调整搜索权重
+Sorts the weights by the stats selected multiplied by a value,根据所选属性乘以一个值对权重排序
+Currently sorting by:,当前排序依据:
+^7Sort By:,^7排序方式:
+(Highest) Stat Value,(最高) 属性值
+Stat Value / Price,属性值 / 价格
+(Lowest) Price,(最低) 价格
+(Highest) Weighted Sum,(最高) 加权总和
+Include Enchants:,包含附魔:
+This includes enchants in sorting that occurs after trade results have been retrieved,这将在获取交易结果后的排序中包含附魔属性
+^7Realm:,^7区服:
+^7League:,^7联盟:
+^8Other trades:,^8其他交易:
+Total Price: ,总价: 
+Stat Weight Multipliers,属性权重倍数
+^7Disabled,^7已禁用
+Reset,重置
+Full DPS,完整DPS
+Effective Hit Pool,有效承伤血量
+<< Search,<< 搜索
+Import Item,导入物品
+Whisper,密语
+Copies the item purchase whisper to the clipboard,将物品购买密语复制到剪贴板
+Error while fetching league list: ,获取联盟列表时出错: 
