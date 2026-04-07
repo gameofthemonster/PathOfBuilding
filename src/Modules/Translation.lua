@@ -24,6 +24,55 @@ local function cleanPath(path)
 	return path
 end
 
+local function pathParent(path)
+	if not path or path == "" then return nil end
+	return path:match("^(.+)/[^/]+/$") and (path:match("^(.+)/[^/]+/$") .. "/") or nil
+end
+
+local function hasAnyCSV(dirPath)
+	if not dirPath then return false end
+	local h = NewFileSearch(dirPath .. "*.csv")
+	return h ~= nil
+end
+
+local function resolveTranslationBasePath(lang)
+	local scriptPath = cleanPath(GetScriptPath and GetScriptPath() or "")
+	local runtimePath = cleanPath(GetRuntimePath and GetRuntimePath() or "")
+	local candidates = {}
+
+	local function addCandidate(base)
+		if base and base ~= "" then
+			candidates[#candidates + 1] = base .. "trs/" .. lang .. "/"
+		end
+	end
+
+	-- Source layout: <root>/src/
+	if scriptPath and scriptPath:match("/src/$") then
+		addCandidate(scriptPath:match("^(.*/)src/$"))
+	end
+
+	-- Packaged layout often runs scripts from <app>/Modules/
+	if scriptPath then
+		addCandidate(scriptPath)
+		addCandidate(pathParent(scriptPath))
+	end
+
+	if runtimePath then
+		addCandidate(runtimePath)
+		addCandidate(pathParent(runtimePath))
+	end
+
+	for _, p in ipairs(candidates) do
+		if hasAnyCSV(p) then
+			return p
+		end
+	end
+
+	-- Fallback to prior behavior (for logging and compatibility)
+	local repoRoot = (scriptPath and scriptPath:match("^(.*/)src/$")) or scriptPath or runtimePath or ""
+	return repoRoot .. "trs/" .. lang .. "/"
+end
+
 -- Translate a string, preserving surrounding color codes.
 -- Handles patterns such as:
 --   "^7Average Hit^7:"        leading ^7, core "Average Hit", trailing "^7:"
@@ -422,10 +471,7 @@ function Translation.load(lang)
 	Translation._missedKeys = {}
 	if Translation.lang == "en" then return end
 
-	-- Derive repo root from GetScriptPath() (which points at src/).
-	local scriptPath     = cleanPath(GetScriptPath and GetScriptPath() or "")
-	local repoRoot       = (scriptPath and scriptPath:match("^(.*/)src/$")) or scriptPath or ""
-	local basePath       = repoRoot .. "trs/" .. Translation.lang .. "/"
+	local basePath = resolveTranslationBasePath(Translation.lang)
 
 	local files, entries = loadCSVDir(basePath)
 	if files == 0 then
