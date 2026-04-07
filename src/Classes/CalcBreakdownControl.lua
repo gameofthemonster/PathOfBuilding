@@ -168,7 +168,6 @@ function CalcBreakdownClass:AddBreakdownSection(sectionData)
 			rowList = rowList,
 			colList = breakdown.colList,
 		}
-		Translation.patchSection(section)
 		t_insert(self.sectionList, section)
 	end
 
@@ -188,7 +187,6 @@ function CalcBreakdownClass:AddBreakdownSection(sectionData)
 				{ label = "Reservation", key = "total" },
 			}
 		}
-		Translation.patchSection(section)
 		t_insert(self.sectionList, section)
 	end
 
@@ -207,7 +205,6 @@ function CalcBreakdownClass:AddBreakdownSection(sectionData)
 				{ label = "Gain", key = "gainDst" },
 			}
 		}
-		Translation.patchSection(section)
 		t_insert(self.sectionList, section)
 	end
 
@@ -251,7 +248,6 @@ function CalcBreakdownClass:AddBreakdownSection(sectionData)
 			rowList = rowList,
 			colList = colList,
 		}
-		Translation.patchSection(section)
 		t_insert(self.sectionList, section)
 		for _, row in pairs(section.rowList) do
 			if row.item then
@@ -309,7 +305,6 @@ function CalcBreakdownClass:AddModSection(sectionData, modList)
 			{ label = "Source Name", key = "sourceName" },
 		},
 	}
-	Translation.patchSection(section)
 	t_insert(self.sectionList, section)
 
 	if not modList and not sectionData.modType then

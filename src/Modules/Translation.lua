@@ -176,19 +176,6 @@ function Translation.patch(t, _seen, _depth)
 	end
 end
 
--- Patch a CalcBreakdown section (label + colList labels).
-function Translation.patchSection(section)
-	if Translation.lang == "en" or not section then return end
-	if section.label then
-		section.label = translateStr(section.label)
-	end
-	if section.colList then
-		for _, col in ipairs(section.colList) do
-			if col.label then col.label = translateStr(col.label) end
-		end
-	end
-end
-
 -- ---------------------------------------------------------------------------
 -- CSV loader
 -- ---------------------------------------------------------------------------
@@ -382,6 +369,9 @@ new = function(className, ...)
 	if className == "EditControl" then
 		patchEditControlSetPlaceholder()
 	end
+	if className == "ItemListControl" then
+		patchItemListGetRowValue()
+	end
 	return _orig_new(className, ...)
 end
 
@@ -445,6 +435,35 @@ function patchEditControlSetPlaceholder()
 				text = translateStr(text)
 			end
 			return _orig_SetPlaceholder(self, text, notify)
+		end
+	end
+end
+
+-- ItemListControl.GetRowValue builds "title, baseName" by concatenation,
+-- so the combined string can't be looked up as a whole.  Patch it to translate
+-- each part separately before joining.
+function patchItemListGetRowValue()
+	if Translation._itemListGetRowValuePatched then return end
+	Translation._itemListGetRowValuePatched = true
+	local cls = common and common.classes and common.classes["ItemListControl"]
+	if cls and cls.GetRowValue then
+		local _orig = cls.GetRowValue
+		cls.GetRowValue = function(self, column, index, itemId)
+			local result = _orig(self, column, index, itemId)
+			if column == 1 and type(result) == "string" then
+				local item = self.itemsTab and self.itemsTab.items and self.itemsTab.items[itemId]
+				if item then
+					if item.title and item.baseName then
+						local tTitle   = translateStr(item.title)
+						local tBase    = translateStr(item.baseName:gsub(" %(.+%)",""))
+						result = result:gsub(item.title .. ", " .. item.baseName:gsub(" %(.+%)",""), tTitle .. ", " .. tBase, 1)
+					elseif item.name then
+						local tName = translateStr(item.name)
+						result = result:gsub(item.name, tName, 1)
+					end
+				end
+			end
+			return result
 		end
 	end
 end

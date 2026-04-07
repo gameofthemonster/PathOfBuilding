@@ -127,9 +127,9 @@ function ItemListClass:GetRowValue(column, index, itemId)
 		end
 		local displayName
 		if item.title and item.baseName then
-			displayName = Translation.get(item.title) .. ", " .. Translation.get(item.baseName:gsub(" %(.+%)",""))
+			displayName = item.title .. ", " .. item.baseName:gsub(" %(.+%)","")
 		else
-			displayName = Translation.get(item.name)
+			displayName = item.name
 		end
 		return colorCodes[item.rarity] .. displayName .. used
 	end

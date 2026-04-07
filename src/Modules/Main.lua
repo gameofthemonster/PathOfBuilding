@@ -135,7 +135,7 @@ function main:Init()
 	self.slotOnlyTooltips = true
 	self.migrateEldritchImplicits = true
 	self.notSupportedModTooltips = true
-	self.notSupportedTooltipText = " ^8" .. Translation.get("(Not supported in PoB yet)")
+	self.notSupportedTooltipText = " ^8(Not supported in PoB yet)"
 	self.POESESSID = ""
 	self.showPublicBuilds = true
 	self.showFlavourText = true
