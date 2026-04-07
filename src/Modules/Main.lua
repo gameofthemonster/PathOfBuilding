@@ -112,7 +112,7 @@ function main:Init()
 			end
 		end
 		if not languageLoaded then
-			self.language = self.language or "zh-CN"
+			self.language = self.language or "en"
 			Translation.load(self.language)
 			self.language = Translation.lang
 		end

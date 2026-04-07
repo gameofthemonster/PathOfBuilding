@@ -284,7 +284,7 @@ Scorch Effect Mod:,灼烧效果修正:
 Chance to Scorch:,灼烧几率:
 Scorch Duration:,灼烧持续时间:
 Maximum Scorch:,最大灼烧:
-Current Scorch:,当前灼烧:   
+Current Scorch:,当前灼烧:
 Configured Scorch:,灼烧(配置):
 Guaranteed Scorches:,灼烧(保障):
 Total Scorch:,总灼烧:
@@ -332,7 +332,6 @@ MH K.B. Chance:,击退几率(主手):
 MH K.B. Dist.:,击退距离(主手):
 OH K.B. Chance:,击退几率(副手):
 OH K.B. Dist.:,击退距离(副手):
-
 Inc. Item Quantity:,物品数量提高:
 IIQ for Normal Mobs:,普通敌人物品数量提高:
 Inc. Item Rarity:,物品稀有度提高:
@@ -374,7 +373,6 @@ Cold Recoup:,冰霜吸纳:
 Fire Recoup:,火焰吸纳:
 Chaos Recoup:,混沌吸纳:
 Dmg. Mit. Regen:,物理伤害减轻再生:
-
 Mana:,魔力:
 Increased Mana Regeneration Rate:,魔力再生速率提高:
 More Mana Regeneration Rate:,魔力再生速率总增:
@@ -385,7 +383,6 @@ Increased Energy Shield Regeneration Rate:,ES再生速率提高:
 More Energy Shield Regeneration Rate:,ES再生速率总增:
 Ele Recoup:,元素伤ES吸纳:
 Ward:,结界:
-
 Armour:,护甲:
 Armour Defense:,护甲防御:
 Phys. Dmg. Reduct:,物理伤害减免:
@@ -418,7 +415,6 @@ Suppression Ch.:,法术压制几率:
 Suppression Effect:,法术压制效果:
 ES on Suppression:,压制时ES回复:
 Life on Suppression:,压制时生命回复:
-
 Flasks:,药剂:
 Inc. Effect:,效果提高:
 Inc. Duration:,持续时间提高:
@@ -449,7 +445,6 @@ ManaBurn inc Rate:,魔力燃烧提高率:
 ManaBurn more Rate:,魔力燃烧总增率:
 % Not Inflict ManaBurn:,不导致魔力燃烧几率:
 Cooldown Recovery:,冷却恢复:
-
 Rage:,怒火:
 Rage Effect:,怒火效果:
 Maximum Rage:,最大怒火:
@@ -457,7 +452,6 @@ Increased Rage Regeneration Rate:,怒火再生速率提高:
 More Rage Regeneration Rate:,怒火再生速率总增:
 Rage Loss Delay:,怒火流失延迟:
 Inherent Rage Loss:,固有怒火流失:
-
 Charges:,充能球:
 Endurance:,耐力球:
 Max:,最大:
@@ -466,7 +460,6 @@ Spendable:,可花费:
 Duration:,持续时间:
 Frenzy:,狂怒球:
 Power:,暴击球:
-
 Other Defences:,其它防御:
 Movement Speed:,移动速度:
 Effect of Elusive:,灵巧效果:
@@ -531,7 +524,6 @@ Brittle Effect:,易碎效果:
 Scorch Effect:,灼烧效果:
 Bleed Effect:,流血效果:
 Poison Effect:,中毒效果:
-
 Damage Taken:,承受伤害:
 Enemy Damage:,敌人伤害:
 Enemy Conversion modifiers:,敌人转换修正:
@@ -590,5 +582,3 @@ Net Mana Recovery:,魔力净回复:
 Net ES Recovery:,能量护盾净回复:
 Net Energy Shield Recovery:,能量护盾净回复:
 Enemy Degens:,敌人扣血:
-
-

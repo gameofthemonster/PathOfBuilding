@@ -24,6 +24,16 @@ local function cleanPath(path)
 	return path
 end
 
+local function asDirPath(path)
+	path = cleanPath(path)
+	if not path then return nil end
+	-- Some launchers may return a full file path (e.g. *.lua, *.exe) instead of a directory.
+	if path:match("%.[^/]+/$") then
+		path = path:gsub("[^/]+/$", "")
+	end
+	return path
+end
+
 local function pathParent(path)
 	if not path or path == "" then return nil end
 	return path:match("^(.+)/[^/]+/$") and (path:match("^(.+)/[^/]+/$") .. "/") or nil
@@ -36,8 +46,9 @@ local function hasAnyCSV(dirPath)
 end
 
 local function resolveTranslationBasePath(lang)
-	local scriptPath = cleanPath(GetScriptPath and GetScriptPath() or "")
-	local runtimePath = cleanPath(GetRuntimePath and GetRuntimePath() or "")
+	local scriptPath = asDirPath(GetScriptPath and GetScriptPath() or "")
+	local runtimePath = asDirPath(GetRuntimePath and GetRuntimePath() or "")
+	local workPath = asDirPath(GetWorkDir and GetWorkDir() or "")
 	local candidates = {}
 
 	local function addCandidate(base)
@@ -62,6 +73,15 @@ local function resolveTranslationBasePath(lang)
 		addCandidate(pathParent(runtimePath))
 	end
 
+	if workPath then
+		addCandidate(workPath)
+		addCandidate(pathParent(workPath))
+	end
+
+	-- Relative fallbacks for alternate launchers (e.g. Rust binary entry points).
+	candidates[#candidates + 1] = "trs/" .. lang .. "/"
+	candidates[#candidates + 1] = "../trs/" .. lang .. "/"
+
 	for _, p in ipairs(candidates) do
 		if hasAnyCSV(p) then
 			return p
@@ -69,7 +89,7 @@ local function resolveTranslationBasePath(lang)
 	end
 
 	-- Fallback to prior behavior (for logging and compatibility)
-	local repoRoot = (scriptPath and scriptPath:match("^(.*/)src/$")) or scriptPath or runtimePath or ""
+	local repoRoot = (scriptPath and scriptPath:match("^(.*/)src/$")) or scriptPath or runtimePath or workPath or ""
 	return repoRoot .. "trs/" .. lang .. "/"
 end
 
