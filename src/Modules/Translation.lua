@@ -7,6 +7,7 @@
 Translation = {
 	lang = "en",
 	table = {},
+	_missedKeys = {}, -- de-duplicate missing-translation warnings
 }
 
 -- ---------------------------------------------------------------------------
@@ -17,9 +18,9 @@ Translation = {
 -- ensure a single trailing slash.
 local function cleanPath(path)
 	if not path or path == "" then return nil end
-	path = path:gsub("\\", "/")          -- backslash -> slash
-	path = path:gsub("^//%?/", "")       -- strip //?/ (\\?\)
-	path = path:gsub("/?$", "/")         -- ensure trailing slash
+	path = path:gsub("\\", "/") -- backslash -> slash
+	path = path:gsub("^//%?/", "") -- strip //?/ (\\?\)
+	path = path:gsub("/?$", "/") -- ensure trailing slash
 	return path
 end
 
@@ -29,19 +30,19 @@ end
 --   "^xE05030Foo Bar^7:"      leading ^xRRGGBB, core "Foo Bar", trailing "^7:"
 --   "Average Hit:"            no leading color code, lookup as-is
 -- Strategy:
---   1. Strip leading color code(s) → prefix + rest
+--   1. Strip leading color code(s) 闁?prefix + rest
 --   2. Direct lookup of rest
 --   3. Try stripping a single trailing color-code sequence from rest
---      → look up (core + non-color trailing punctuation like ":")
+--      闁?look up (core + non-color trailing punctuation like ":")
 --   4. Fallback: return s unchanged
 local function translateStr(s)
 	if type(s) ~= "string" or s == "" then return s end
 
 	-- Strip leading color code (^xRRGGBB or ^X single char)
 	local prefix, rest
-	prefix, rest = s:match("^(%^x%x%x%x%x%x%x)(.*)")   -- ^xRRGGBB
+	prefix, rest = s:match("^(%^x%x%x%x%x%x%x)(.*)") -- ^xRRGGBB
 	if not prefix then
-		prefix, rest = s:match("^(%^.)(.*)")             -- ^7 etc.
+		prefix, rest = s:match("^(%^.)(.*)")      -- ^7 etc.
 	end
 	if not prefix then
 		prefix, rest = "", s
@@ -52,12 +53,12 @@ local function translateStr(s)
 	if tr then return prefix .. tr end
 
 	-- 2. Try to decompose trailing "^colorcode + punctuation" pattern
-	--    e.g. rest = "Average Hit^7:" → trailingColor="^7", trailingPunct=":"
+	--    e.g. rest = "Average Hit^7:" 闁?trailingColor="^7", trailingPunct=":"
 	local core, trailingColor, trailingPunct =
-		rest:match("^(.-)(%^x%x%x%x%x%x%x)([^%^]*)$")   -- trailing ^xRRGGBB + optional chars
+		rest:match("^(.-)(%^x%x%x%x%x%x%x)([^%^]*)$") -- trailing ^xRRGGBB + optional chars
 	if not core then
 		core, trailingColor, trailingPunct =
-			rest:match("^(.-)(%^.)([^%^]*)$")             -- trailing ^7 + optional chars
+			rest:match("^(.-)(%^.)([^%^]*)$") -- trailing ^7 + optional chars
 	end
 	if core and core ~= "" then
 		-- Try lookup with trailing punctuation appended (e.g. "Average Hit:")
@@ -81,66 +82,181 @@ local function translateStr(s)
 	--    If found, substitute the captured numbers back into the translated template.
 	--    Also handles "+N ..." patterns where statDescriptions.csv stores "{0} ..."
 	--    (the + sign appears before the number in tree stat strings but not in CSV keys).
+	--    Also handles "(N-N)" range expressions (e.g. "(10-20)") as a single placeholder.
 	do
+		-- Helper: look up a template and substitute nums back.
+		local function resolveTemplate(tmpl, nums)
+			local t = Translation.table[tmpl]
+			if not t then
+				t = Translation.table[tmpl .. ":"]
+				if t then t = t:gsub(":$", "") end
+			end
+			if t then
+				return t:gsub("{(%d+)}", function(i)
+					return nums[tonumber(i)] or ("{" .. i .. "}")
+				end)
+			end
+		end
+
+		-- Helper: strip leading "+" before placeholders and try lookup.
+		local function resolveStripped(templated, nums)
+			local hasPlus = {}
+			local stripped = templated:gsub("%+({(%d+)})", function(ph, i)
+				hasPlus[tonumber(i)] = true
+				return ph
+			end)
+			if stripped == templated then return nil end
+			local t = Translation.table[stripped] or Translation.table[stripped .. ":"]
+			if t then
+				if t:match(":$") then t = t:gsub(":$", "") end
+				return t:gsub("{(%d+)}", function(i)
+					local n = nums[tonumber(i)] or ("{" .. i .. "}")
+					if hasPlus[tonumber(i)] and not tostring(n):match("^%-") then
+						return "+" .. n
+					end
+					return n
+				end)
+			end
+		end
+
+		-- First pass: replace (N-N) range expressions with a single placeholder.
+		-- Try resolving immediately so the range placeholder is not fragmented by
+		-- the second pass (which would turn "{0}" into "{{1}}").
+		do
+			local nums1 = {}
+			local idx1 = 0
+			local t1 = rest:gsub("%(%-?%d+%.?%d*%-%-?%d+%.?%d*%)", function(n)
+				nums1[idx1] = n
+				local ph = "{" .. idx1 .. "}"
+				idx1 = idx1 + 1
+				return ph
+			end)
+			if idx1 > 0 then
+				local r = resolveTemplate(t1, nums1) or resolveStripped(t1, nums1)
+				if r then return prefix .. r end
+			end
+		end
+
+		-- Second pass: replace plain numbers (no range expressions remain).
 		local nums = {}
 		local idx = 0
 		local templated = rest:gsub("%-?%d+%.?%d*", function(n)
 			nums[idx] = n
-			local ph = "{"..idx.."}"
+			local ph = "{" .. idx .. "}"
 			idx = idx + 1
 			return ph
 		end)
 		if idx > 0 then
-			-- Helper: look up a template and substitute numbers back.
-			local function resolveTemplate(tmpl)
-				local t = Translation.table[tmpl]
-				if not t then
-					-- Also try colon-keyed variant
-					t = Translation.table[tmpl .. ":"]
-					if t then t = t:gsub(":$", "") end
-				end
-				if t then
-					return t:gsub("{(%d+)}", function(i)
-						return nums[tonumber(i)] or ("{" .. i .. "}")
-					end)
-				end
-			end
-			-- Try the template as-is first
-			local result = resolveTemplate(templated)
-			if result then return prefix .. result end
-			-- Try stripping "+" signs that appear directly before a placeholder {N}.
-			-- Handles "+20 to maximum Life" → template "+{0} to maximum Life"
-			-- which should match CSV key "{0} to maximum Life".
-			-- Track which placeholder indices had a "+" so we can restore it in the result.
-			local hasPlus = {}
-			local stripped = templated:gsub("%+({(%d+)})", function(ph, i)
-				-- ph = "{N}", i = "N" (the captured digit string)
-				hasPlus[tonumber(i)] = true
-				return ph   -- keep the placeholder, just drop the preceding "+" from the match
-			end)
-			if stripped ~= templated then
-				local t = Translation.table[stripped]
-				if not t then
-					t = Translation.table[stripped .. ":"]
-					if t then t = t:gsub(":$", "") end
-				end
-				if t then
-					local result2 = t:gsub("{(%d+)}", function(i)
-						local n = nums[tonumber(i)] or ("{" .. i .. "}")
-						if hasPlus[tonumber(i)] and not tostring(n):match("^%-") then
-							return "+" .. n
-						end
-						return n
-					end)
-					return prefix .. result2
-				end
-			end
+			local r = resolveTemplate(templated, nums) or resolveStripped(templated, nums)
+			if r then return prefix .. r end
 		end
 	end
 
 	-- 5. Full string lookup (no leading color code was found)
 	tr = Translation.table[s]
 	if tr then return tr end
+
+	-- 6. Substring fallback: find the longest contiguous run of letters/spaces in
+	--     `rest` that has a translation, and substitute just that part.
+	--     Handles dynamically-composed strings like:
+	--       "-0.05 Attack Rate (-4.2%)"   闁?translates "Attack Rate"
+	--       "+1,234 Total Life (+5.2%)"   闁?translates "Total Life"
+	--       "+16% Hit Chance"             闁?translates "Hit Chance"
+	--     Algorithm:
+	--       1. Collect start positions of letter-runs in `rest`.
+	--       2. For each start, walk forward over letters+spaces to find the max extent,
+	--          then try progressively shorter word-aligned substrings against the table.
+	--       3. On first hit, splice the translation back in, using the original
+	--          surrounding characters (including any spaces) verbatim 闁?but collapse
+	--          any run of spaces around the splice point to a single space.
+	do
+		-- Collect start indices of every letter-run (a letter preceded by a non-letter).
+		local starts = {}
+		for i = 1, #rest do
+			if rest:sub(i, i):match("%a") then
+				local prev = i > 1 and rest:sub(i - 1, i - 1) or ""
+				if not prev:match("%a") then
+					starts[#starts + 1] = i
+				end
+			end
+		end
+
+		local bestKey, bestVal, bestStart, bestEnd
+		for _, si in ipairs(starts) do
+			-- Walk forward over letters, spaces, and dots (for abbreviations like "inc.", "Dmg.").
+			local ei = si
+			while ei + 1 <= #rest and rest:sub(ei + 1, ei + 1):match("[%a .]") do
+				ei = ei + 1
+			end
+			-- Trim trailing spaces and dots so the candidate ends on a letter.
+			while ei >= si and rest:sub(ei, ei):match("[%s%.]") do ei = ei - 1 end
+
+			-- Try progressively shorter word-aligned substrings.
+			local attempt_end = ei
+			while attempt_end >= si do
+				-- Ensure candidate ends on a letter (skip trailing spaces and dots).
+				while attempt_end > si and rest:sub(attempt_end, attempt_end):match("[%s%.]") do
+					attempt_end = attempt_end - 1
+				end
+				local candidate = rest:sub(si, attempt_end):gsub(" +", " ")
+				local tval = Translation.table[candidate] or Translation.table[candidate .. ":"]
+				if tval then
+					-- Normalize: if we matched via the colon key, strip trailing colon from translation.
+					tval = tval:gsub(":$", "")
+					if not bestKey or #candidate > #bestKey then
+						bestKey   = candidate
+						bestVal   = tval
+						bestStart = si
+						bestEnd   = attempt_end
+					end
+					break
+				end
+				-- Drop the last word and retry.
+				local last_space = candidate:match(".*() ")
+				if last_space then
+					attempt_end = si + last_space - 2
+				else
+					break
+				end
+			end
+		end
+
+		if bestKey then
+			local translated = bestVal
+			local before     = rest:sub(1, bestStart - 1)
+			local after      = rest:sub(bestEnd + 1)
+			local bTrail     = before:match(" +$") and " " or ""
+			local aLead      = after:match("^ +") and " " or ""
+			before           = before:gsub(" +$", "")
+			after            = after:gsub("^ +", "")
+			return prefix .. before .. bTrail .. translated .. aLead .. after
+		end
+
+		-- No translation found at all: warn once per unique string.
+		-- Skip strings that are clearly not translatable:
+		--   - lang is "en" (no translation expected)
+		--   - length <= 2
+		--   - only color codes / digits / whitespace / punctuation  (e.g. "^7", ": ")
+		--   - pure color-code prefix with no alphabetic content     (e.g. "^x80A080")
+		--   - contains a newline (multi-line dynamic tip)
+		--   - rest still has embedded color codes (dynamically composed, untranslatable as-is)
+		--   - contains "[" + "per point" (compare-stat dynamic line)
+		--   - ends with "(Not supported in PoB yet)"
+		if Translation.lang ~= "en"
+			and #s > 2
+			and not s:match("^[%^%d%s%p]*$")
+			and not s:match("^%^x%x%x%x%x%x%x$")
+			and not s:match("[\r\n]")
+			and not rest:match("%^")
+			and not (s:find("[", 1, true) and s:find("per point", 1, true))
+			and not s:match("%(Not supported in PoB yet%)%s*$")
+		then
+			if not Translation._missedKeys[s] then
+				Translation._missedKeys[s] = true
+				ConPrintf("Translation: missing key: %s", s)
+			end
+		end
+	end
 
 	return s
 end
@@ -156,14 +272,17 @@ end
 
 -- Field keys whose string values should be translated when patching a table.
 local TRANSLATE_KEYS = {
-	label = true, description = true, hint = true,
-	tooltip = true, tooltipText = true,
+	label = true,
+	description = true,
+	hint = true,
+	tooltip = true,
+	tooltipText = true,
 }
 
 -- Recursively translate TRANSLATE_KEYS values in a table.
 function Translation.patch(t, _seen, _depth)
 	if type(t) ~= "table" then return end
-	_seen  = _seen  or {}
+	_seen  = _seen or {}
 	_depth = _depth or 0
 	if _depth > 4 or _seen[t] then return end
 	_seen[t] = true
@@ -281,14 +400,15 @@ function Translation.load(lang)
 	lang = lang or "en"
 	-- Skip reload if language hasn't changed and table is already populated
 	if lang == Translation.lang and next(Translation.table) ~= nil then return end
-	Translation.lang  = lang
-	Translation.table = {}
+	Translation.lang        = lang
+	Translation.table       = {}
+	Translation._missedKeys = {}
 	if Translation.lang == "en" then return end
 
 	-- Derive repo root from GetScriptPath() (which points at src/).
-	local scriptPath = cleanPath(GetScriptPath and GetScriptPath() or "")
-	local repoRoot   = (scriptPath and scriptPath:match("^(.*/)src/$")) or scriptPath or ""
-	local basePath   = repoRoot .. "trs/" .. Translation.lang .. "/"
+	local scriptPath     = cleanPath(GetScriptPath and GetScriptPath() or "")
+	local repoRoot       = (scriptPath and scriptPath:match("^(.*/)src/$")) or scriptPath or ""
+	local basePath       = repoRoot .. "trs/" .. Translation.lang .. "/"
 
 	local files, entries = loadCSVDir(basePath)
 	if files == 0 then
@@ -332,78 +452,29 @@ end
 -- new() / newClass() wrappers
 -- ---------------------------------------------------------------------------
 
--- UI control classes whose 3rd constructor argument is a display label.
-local LABEL_ARG_CLASSES = {
-	ButtonControl   = true,
-	CheckBoxControl = true,
-	DraggerControl  = true,
-	LabelControl    = true,
-	SectionControl  = true,
-}
-
--- Wrap new() to translate the label string argument of known UI control classes.
--- Table arguments are NOT recursively patched here — patch() is only called
--- explicitly where needed (e.g. DropDown list items) to avoid O(N) cost on
--- every new() call during startup (Item DB loads tens of thousands of objects).
+-- Wrap new() to trigger lazy patches for special control types.
+-- We intentionally do not mutate class metatables via newClass(); translation
+-- is handled by targeted hooks below to avoid side effects on object fields.
 local _orig_new = new
 new = function(className, ...)
-	if Translation.lang == "en" then
-		return _orig_new(className, ...)
-	end
-	if LABEL_ARG_CLASSES[className] then
-		local argc = select("#", ...)
-		local args = {}
-		for i = 1, argc do args[i] = select(i, ...) end
-		-- label is always the 3rd argument (after anchor, rect)
-		if type(args[3]) == "string" then
-			args[3] = translateStr(args[3])
+	if Translation.lang ~= "en" then
+		if className == "Tooltip" then
+			patchTooltipAddLine()
 		end
-		return _orig_new(className, unpack(args, 1, argc))
-	end
-	-- On first Tooltip construction, patch AddLine lazily (TooltipClass:AddLine
-	-- is not defined until after newClass("Tooltip",...) returns, so we cannot
-	-- wrap it at newClass time).
-	if className == "Tooltip" then
-		patchTooltipAddLine()
-	end
-	if className == "EditControl" then
-		patchEditControlSetPlaceholder()
-	end
-	if className == "ItemListControl" then
-		patchItemListGetRowValue()
+		if className == "EditControl" then
+			patchEditControlSetPlaceholder()
+		end
+		if className == "ItemListControl" then
+			patchItemListGetRowValue()
+		end
 	end
 	return _orig_new(className, ...)
 end
 
--- UI control classes that may set obj.label / obj.placeholder after construction.
-local LABEL_CLASSES = {
-	ButtonControl   = true,
-	CheckBoxControl = true,
-	DraggerControl  = true,
-	LabelControl    = true,
-	SectionControl  = true,
-	SliderControl   = true,
-	EditControl     = true,
-	DropDownControl = true,
-}
-
--- Wrap newClass() to install __newindex on label-bearing control classes so
--- that post-construction  obj.label = "..."  assignments are also translated.
+-- newClass wrapper (pass-through).
 local _orig_newClass = newClass
 newClass = function(className, ...)
-	local class = _orig_newClass(className, ...)
-	if LABEL_CLASSES[className] then
-		-- Instances are created as setmetatable({}, class), so Lua looks up
-		-- __newindex in `class` itself.  We set it directly so every new key
-		-- assignment on any instance passes through the translator.
-		class.__newindex = function(t, k, v)
-			if Translation.lang ~= "en" and (k == "label" or k == "placeholder") and type(v) == "string" then
-				v = translateStr(v)
-			end
-			rawset(t, k, v)
-		end
-	end
-	return class
+	return _orig_newClass(className, ...)
 end
 
 -- Install Tooltip.AddLine patch the first time new("Tooltip") is called,
@@ -454,9 +525,10 @@ function patchItemListGetRowValue()
 				local item = self.itemsTab and self.itemsTab.items and self.itemsTab.items[itemId]
 				if item then
 					if item.title and item.baseName then
-						local tTitle   = translateStr(item.title)
-						local tBase    = translateStr(item.baseName:gsub(" %(.+%)",""))
-						result = result:gsub(item.title .. ", " .. item.baseName:gsub(" %(.+%)",""), tTitle .. ", " .. tBase, 1)
+						local tTitle = translateStr(item.title)
+						local tBase  = translateStr(item.baseName:gsub(" %(.+%)", ""))
+						result       = result:gsub(item.title .. ", " .. item.baseName:gsub(" %(.+%)", ""),
+							tTitle .. ", " .. tBase, 1)
 					elseif item.name then
 						local tName = translateStr(item.name)
 						result = result:gsub(item.name, tName, 1)
