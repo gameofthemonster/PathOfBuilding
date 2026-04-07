@@ -156,6 +156,21 @@ local function translateStr(s)
 	tr = Translation.table[s]
 	if tr then return tr end
 
+	-- 5b. Composed "name, base" fallback (common for item labels).
+	-- Try translating both sides independently, preserving the comma join.
+	do
+		local left, right = rest:match("^(.-), (.+)$")
+		if left and right then
+			local tl = Translation.table[left] or Translation.table[left .. ":"]
+			local trr = Translation.table[right] or Translation.table[right .. ":"]
+			if tl or trr then
+				if tl then tl = tl:gsub(":$", "") else tl = left end
+				if trr then trr = trr:gsub(":$", "") else trr = right end
+				return prefix .. tl .. ", " .. trr
+			end
+		end
+	end
+
 	-- 6. Substring fallback: find the longest contiguous run of letters/spaces in
 	--     `rest` that has a translation, and substitute just that part.
 	--     Handles dynamically-composed strings like:
@@ -242,6 +257,7 @@ local function translateStr(s)
 		--   - rest still has embedded color codes (dynamically composed, untranslatable as-is)
 		--   - contains "[" + "per point" (compare-stat dynamic line)
 		--   - ends with "(Not supported in PoB yet)"
+		--   - colored item labels formatted as "^xRRGGBBName, Base"
 		if Translation.lang ~= "en"
 			and #s > 2
 			and not s:match("^[%^%d%s%p]*$")
@@ -250,6 +266,7 @@ local function translateStr(s)
 			and not rest:match("%^")
 			and not (s:find("[", 1, true) and s:find("per point", 1, true))
 			and not s:match("%(Not supported in PoB yet%)%s*$")
+			and not s:match("^%^x%x%x%x%x%x%x[^,\r\n]+, [^,\r\n]+$")
 		then
 			if not Translation._missedKeys[s] then
 				Translation._missedKeys[s] = true
