@@ -25,6 +25,7 @@ LoadModule("Modules/BuildSiteTools")
 
 -- Load as global so other modules can access the same instance
 ToastNotification = LoadModule("Modules/ToastNotification")
+Translation = LoadModule("Modules/Translation")
 
 --[[if launch.devMode then
 	for skillName, skill in pairs(data.enchantments.Helmet) do
@@ -92,6 +93,28 @@ function main:Init()
 			self:OpenPathPopup(invalidPath, errMsg, ignoreBuild)
 		else
 			self.userPath = self.userPath.."/Path of Building/"
+		end
+	end
+
+	-- Load language early so controls created during Init can be translated.
+	if self.userPath then
+		local setXML = common.xml.LoadXMLFile(self.userPath.."Settings.xml")
+		local languageLoaded = false
+		if setXML and setXML[1] and setXML[1].elem == "PathOfBuilding" then
+			for _, node in ipairs(setXML[1]) do
+				if type(node) == "table" and node.elem == "Options" and node.attrib and node.attrib.language then
+					self.language = node.attrib.language
+					Translation.load(self.language)
+					self.language = Translation.lang
+					languageLoaded = true
+					break
+				end
+			end
+		end
+		if not languageLoaded then
+			self.language = self.language or "en"
+			Translation.load(self.language)
+			self.language = Translation.lang
 		end
 	end
 
@@ -629,6 +652,10 @@ function main:LoadSettings(ignoreBuild)
 					self.dpiScaleOverridePercent = tonumber(node.attrib.dpiScaleOverridePercent) or 0
 					SetDPIScaleOverridePercent(self.dpiScaleOverridePercent)
 				end
+				if node.attrib.language then
+					self.language = node.attrib.language
+					Translation.load(self.language)
+				end
 			end
 		end
 	end
@@ -761,6 +788,7 @@ function main:SaveSettings()
 		showAnimations = tostring(self.showAnimations),
 		showAllItemAffixes = tostring(self.showAllItemAffixes),
 		dpiScaleOverridePercent = tostring(self.dpiScaleOverridePercent),
+		language = self.language,
 	} })
 	local res, errMsg = common.xml.SaveXMLFile(setXML, self.userPath.."Settings.xml")
 	if not res then
@@ -841,6 +869,17 @@ function main:OpenOptionsPopup()
 
 	drawSectionHeader("app", "Application options")
 
+	controls.language = new("DropDownControl", { "TOPLEFT", nil, "TOPLEFT" }, { defaultLabelPlacementX, currentY, 150, 18 }, {
+		{ label = "English", lang = "en" },
+		{ label = "Simplified Chinese", lang = "zh-CN" },
+	}, function(index, value)
+		self.language = value.lang
+	end)
+	controls.languageLabel = new("LabelControl", { "RIGHT", controls.language, "LEFT" }, { defaultLabelSpacingPx, 0, 0, 16 }, "^7Language:")
+	controls.language.tooltipText = "Changes the display language. Restart to apply."
+	controls.language:SelByValue(self.language or "en", "lang")
+
+	nextRow()
 	controls.connectionProtocol = new("DropDownControl", { "TOPLEFT", nil, "TOPLEFT" }, { defaultLabelPlacementX, currentY, 100, 18 }, {
 		{ label = "Auto", protocol = 0 },
 		{ label = "IPv4", protocol = 1 },

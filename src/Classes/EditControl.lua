@@ -603,8 +603,9 @@ function EditClass:OnKeyDown(key, doubleClick)
 		if self.sel and self.sel ~= self.caret then
 			self:ReplaceSel("")
 		elseif self.caret > 1 then
-			local len = 1
+			local len
 			if IsKeyDown("CTRL") then
+				len = 1
 				while self.caret - len > 1 and self.buf:sub(self.caret - len, self.caret - len):match("%s") and not self.buf:sub(self.caret - len - 1, self.caret - len - 1):match("\n") do
 					len = len + 1
 				end
@@ -613,6 +614,11 @@ function EditClass:OnKeyDown(key, doubleClick)
 						len = len + 1
 					end
 				end
+			else
+				-- Use utf8-aware navigation to compute the byte length of the previous character,
+				-- so that multi-byte characters (e.g. CJK) are deleted as a whole unit.
+				local prevCaret = utf8.next(self.buf, self.caret, -1) or 0
+				len = self.caret - prevCaret
 			end
 			self.buf = self.buf:sub(1, self.caret - 1 - len) .. self.buf:sub(self.caret)
 			self.caret = self.caret - len
@@ -628,8 +634,9 @@ function EditClass:OnKeyDown(key, doubleClick)
 		if self.sel and self.sel ~= self.caret then
 			self:ReplaceSel("")
 		elseif self.caret <= #self.buf then
-			local len = 1
+			local len
 			if IsKeyDown("CTRL") then
+				len = 1
 				while self.caret + len <= #self.buf and self.buf:sub(self.caret + len - 1, self.caret + len - 1):match("%s") and not self.buf:sub(self.caret + len, self.caret + len):match("\n") do
 					len = len + 1
 				end
@@ -638,6 +645,11 @@ function EditClass:OnKeyDown(key, doubleClick)
 						len = len + 1
 					end
 				end
+			else
+				-- Use utf8-aware navigation to compute the byte length of the current character,
+				-- so that multi-byte characters (e.g. CJK) are deleted as a whole unit.
+				local nextCaret = utf8.next(self.buf, self.caret, 1) or (#self.buf + 1)
+				len = nextCaret - self.caret
 			end
 			self.buf = self.buf:sub(1, self.caret - 1) .. self.buf:sub(self.caret + len)
 			self.sel = nil

@@ -27,6 +27,9 @@ common.xml = require("xml")
 common.base64 = require("base64")
 common.sha1 = require("sha1")
 local utf8 = require('lua-utf8')
+if type(_G.utf8) ~= "table" then
+	_G.utf8 = utf8
+end
 
 -- Try to load a library return nil if failed. https://stackoverflow.com/questions/34965863/lua-require-fallback-error-handling
 function prerequire(...)
